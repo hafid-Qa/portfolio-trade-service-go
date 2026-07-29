@@ -1,0 +1,15 @@
+- ticker: "A"
+  price: 1000
+  tradable: true
+- ticker: "B"
+  price: 155
+  tradable: true
+- ticker: "C"
+  price: 2222
+  tradable: true
+- ticker: "D"
+  price: 467
+  tradable: true
+- ticker: "E"
+  price: 888
+  tradable: false

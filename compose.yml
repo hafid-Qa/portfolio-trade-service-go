@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    image: portfolio:latest
+    container_name: portfolio
+    volumes:
+      - ./app:/app:rw
+      - ./data:/data:rw
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    env_file: .env
+    entrypoint: ["/scripts/entrypoint.sh"]
+    command: ["air", "-c", ".air.toml"]
+    # command: sleep infinity
+
+

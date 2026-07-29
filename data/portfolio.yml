@@ -1,0 +1,17 @@
+- user_id: 1
+  target_portfolio:
+    A: 40
+    B: 60
+- user_id: 2
+  target_portfolio:
+    E: 100
+- user_id: 3
+  target_portfolio:
+    A: 31
+    B: 40
+    E: 29
+- user_id: 4
+  target_portfolio:
+    B: 50
+    C: 49
+    D: 1
