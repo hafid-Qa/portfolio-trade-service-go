@@ -20,3 +20,5 @@
 **/src/pyproject.toml
 **/src/coverage.xml
 **/src/report.xml
+**/tmp
+**/docs

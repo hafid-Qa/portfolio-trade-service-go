@@ -13,3 +13,5 @@ coverage-reports/
 **/src/coverage.xml
 **/src/report.xml
 **/src/.coverage
+**/tmp
+**/docs
