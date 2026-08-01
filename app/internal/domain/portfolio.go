@@ -7,6 +7,9 @@ type Portfolio struct {
 	targetPortfolio map[Symbol]int // map of stock symbols to their percentage allocation in the portfolio
 }
 
+func (p Portfolio) UserId() int                     { return p.userId }
+func (p Portfolio) TargetPortfolio() map[Symbol]int { return p.targetPortfolio }
+
 func NewPortfolio(userId int, targetPortfolio map[Symbol]int) (Portfolio, error) {
 
 	//  UserId positive int
