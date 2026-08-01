@@ -11,7 +11,7 @@ type PortfolioNotFound struct {
 }
 
 func (e PortfolioNotFound) Error() string {
-	return fmt.Sprintf("No portfolio found for user %d", e.userId)
+	return fmt.Sprintf("no portfolio found for user %d", e.userId)
 
 }
 
@@ -21,7 +21,7 @@ type UnknownStocksInPortfolio struct {
 
 func (e UnknownStocksInPortfolio) Error() string {
 	tickers := strings.Join(e.tickers, ", ")
-	return fmt.Sprintf("Stocks not found in catalogue: %s", tickers)
+	return fmt.Sprintf("stocks not found in catalogue: %s", tickers)
 
 }
 
@@ -32,7 +32,7 @@ type TradeAmountBelowMinimum struct {
 
 func (e TradeAmountBelowMinimum) Error() string {
 
-	return fmt.Sprintf("Trade amount %d is below the minimum of %d", e.amount, e.minTrade)
+	return fmt.Sprintf("trade amount %d is below the minimum of %d", e.amount, e.minTrade)
 
 }
 
