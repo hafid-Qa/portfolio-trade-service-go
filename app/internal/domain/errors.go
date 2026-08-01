@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -34,3 +35,11 @@ func (e TradeAmountBelowMinimum) Error() string {
 	return fmt.Sprintf("Trade amount %d is below the minimum of %d", e.amount, e.minTrade)
 
 }
+
+var (
+	ErrInvalidStock      = errors.New("invalid stock")
+	ErrInvalidPortfolio  = errors.New("invalid portfolio")
+	ErrPortfolioNotFound = errors.New("portfolio not found")
+	ErrUnknownStock      = errors.New("portfolio references unknown stock")
+	ErrInvalidSymbol     = errors.New("invalid symbol")
+)
