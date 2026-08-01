@@ -14,3 +14,11 @@ func NewSymbol(s string) (Symbol, error) {
 	}
 	return Symbol(s), nil
 }
+
+func sumTo100Percent(v map[Symbol]int) bool {
+	total := 0
+	for _, value := range v {
+		total += value
+	}
+	return total == 100
+}

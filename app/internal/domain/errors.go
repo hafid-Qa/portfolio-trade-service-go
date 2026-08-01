@@ -42,4 +42,6 @@ var (
 	ErrPortfolioNotFound = errors.New("portfolio not found")
 	ErrUnknownStock      = errors.New("portfolio references unknown stock")
 	ErrInvalidSymbol     = errors.New("invalid symbol")
+	ErrInvalidUserId     = errors.New("invalid user id")
+	ErrInvalidPortfolioSum = errors.New("sum of portfolio is not 100%")
 )
