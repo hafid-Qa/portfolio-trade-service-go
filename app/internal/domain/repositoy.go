@@ -1,9 +1,9 @@
 package domain
 
 type StockRepository interface {
-	all() (map[Symbol]Stock, error)
+	All() (map[Symbol]Stock, error)
 }
 
 type PortfolioRespository interface {
-	Get(Portfolio, error)
+	Get(UserId int) (Portfolio, error)
 }
