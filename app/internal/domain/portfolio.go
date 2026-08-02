@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"maps"
+)
 
 type Portfolio struct {
 	userId          int
@@ -10,7 +13,7 @@ type Portfolio struct {
 func (p Portfolio) UserId() int { return p.userId }
 
 func (p Portfolio) TargetPortfolio() map[Symbol]int {
-	return copyPortfolio(p.targetPortfolio)
+	return maps.Clone(p.targetPortfolio)
 }
 
 func NewPortfolio(userId int, targetPortfolio map[Symbol]int) (Portfolio, error) {
@@ -25,14 +28,6 @@ func NewPortfolio(userId int, targetPortfolio map[Symbol]int) (Portfolio, error)
 
 	return Portfolio{
 		userId:          userId,
-		targetPortfolio: copyPortfolio(targetPortfolio),
+		targetPortfolio: maps.Clone(targetPortfolio),
 	}, nil
-}
-
-func copyPortfolio(v map[Symbol]int) map[Symbol]int {
-	copied := make(map[Symbol]int, len(v))
-	for symbol, weight := range v {
-		copied[symbol] = weight
-	}
-	return copied
 }
