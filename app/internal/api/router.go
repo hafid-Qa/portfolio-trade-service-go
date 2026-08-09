@@ -74,20 +74,26 @@ func (server *Server) healthHandler(c *gin.Context) {
 // @Produce json
 // @Param user_id path int true "User ID"
 // @Param request body TradeRequest true "Trade amount"
-// @Success 202 {object} TradeResponse
+// @Success 200 {object} TradeResponse
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/users/{user_id}/trade [post]
 func (server *Server) TradeHandler(c *gin.Context) {
+	var uri TradeURI
+	if err := c.ShouldBindUri(&uri); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
 	var req TradeRequest
-	if err := c.ShouldBindUri(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
 	tradeService := domain.NewTradeService(server.stockRepo, server.portfolioRepo)
-	res, err := tradeService.CreateTrade(req.UserID, req.Amount)
+	res, err := tradeService.CreateTrade(uri.UserID, req.Amount)
 	if err != nil {
 		if errors.Is(err, domain.ErrPortfolioNotFound) {
 			c.JSON(http.StatusNotFound, errorResponse(err))
@@ -106,7 +112,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusCreated, TradeResponse{
+	c.JSON(http.StatusOK, TradeResponse{
 		Amount:          req.Amount,
 		TargetPortfolio: res.TargetPortfolio(),
 		Orders:          orders,
