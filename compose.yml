@@ -12,6 +12,5 @@ services:
     env_file: .env
     entrypoint: ["/scripts/entrypoint.sh"]
     command: ["air", "-c", ".air.toml"]
-    # command: sleep infinity
 
 
