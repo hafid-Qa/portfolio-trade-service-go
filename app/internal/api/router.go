@@ -69,7 +69,7 @@ func (server *Server) healthHandler(c *gin.Context) {
 // @Description The amount is apportioned across the portfolio's stocks by their target percentages;
 // @Description stocks that are not tradable or whose allocation falls below the minimum order amount
 // @Description are excluded and the remainder is redistributed among the rest.
-// @Tags Trades
+// @Tags Users
 // @Accept json
 // @Produce json
 // @Param user_id path int true "User ID"
