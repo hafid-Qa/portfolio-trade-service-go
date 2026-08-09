@@ -9,7 +9,7 @@ func NewTradeService(s StockRepository, p PortfolioRespository) *TradeService {
 	return &TradeService{stockRepo: s, PortfolioRepo: p}
 }
 
-func (s *TradeService) CreateTrade(userID, amount int) (TradeResult, error) {
+func (s *TradeService) CreateTrade(userID int64, amount int) (TradeResult, error) {
 	portfolio, err := s.PortfolioRepo.Get(userID)
 	if err != nil {
 		return TradeResult{}, err

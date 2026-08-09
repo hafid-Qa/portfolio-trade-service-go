@@ -7,11 +7,11 @@ import (
 )
 
 type Portfolio struct {
-	userId          int
+	userId          int64
 	targetPortfolio map[Symbol]int // map of stock symbols to their percentage allocation in the portfolio
 }
 
-func (p Portfolio) UserId() int { return p.userId }
+func (p Portfolio) UserId() int64 { return p.userId }
 
 func (p Portfolio) TargetPortfolio() map[Symbol]int {
 	return maps.Clone(p.targetPortfolio)
@@ -20,7 +20,7 @@ func (p Portfolio) Tickers() []Symbol {
 	return slices.Collect(maps.Keys(p.targetPortfolio))
 }
 
-func NewPortfolio(userId int, targetPortfolio map[Symbol]int) (Portfolio, error) {
+func NewPortfolio(userId int64, targetPortfolio map[Symbol]int) (Portfolio, error) {
 	if userId <= 0 {
 		return Portfolio{}, fmt.Errorf("%w: user id %d", ErrInvalidUserId, userId)
 	}

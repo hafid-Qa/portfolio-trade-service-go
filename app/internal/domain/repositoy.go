@@ -6,5 +6,5 @@ type StockRepository interface {
 }
 
 type PortfolioRespository interface {
-	Get(UserId int) (Portfolio, error)
+	Get(UserId int64) (Portfolio, error)
 }

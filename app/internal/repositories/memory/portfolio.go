@@ -9,10 +9,10 @@ import (
 )
 
 type PortfolioRepo struct {
-	portfolios map[int]domain.Portfolio
+	portfolios map[int64]domain.Portfolio
 }
 
-func (r *PortfolioRepo) Get(userID int) (domain.Portfolio, error) {
+func (r *PortfolioRepo) Get(userID int64) (domain.Portfolio, error) {
 	p, ok := r.portfolios[userID]
 	if !ok {
 		return domain.Portfolio{}, fmt.Errorf("%w: user %d", domain.ErrPortfolioNotFound, userID)
@@ -21,7 +21,7 @@ func (r *PortfolioRepo) Get(userID int) (domain.Portfolio, error) {
 }
 
 type portfolioDTO struct {
-	UserId          int            `yaml:"user_id"`
+	UserId          int64          `yaml:"user_id"`
 	TargetPortfolio map[string]int `yaml:"target_portfolio"`
 }
 
@@ -34,7 +34,7 @@ func NewPortfolioRepo(path string) (*PortfolioRepo, error) {
 	if err := yaml.Unmarshal(data, &dtos); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
-	portfolios := make(map[int]domain.Portfolio, len(dtos))
+	portfolios := make(map[int64]domain.Portfolio, len(dtos))
 	for i, d := range dtos {
 		// convert to symbol:int
 		targetPortfolio := make(map[domain.Symbol]int, len(d.TargetPortfolio))
@@ -54,7 +54,7 @@ func NewPortfolioRepo(path string) (*PortfolioRepo, error) {
 			return nil, fmt.Errorf("%s entry %d: duplicate user id %d", path, i, p.UserId())
 		}
 		portfolios[p.UserId()] = p
-                
+
 	}
 	return &PortfolioRepo{portfolios: portfolios}, nil
 }
