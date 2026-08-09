@@ -12,7 +12,7 @@ is_true() {
 
 generate_swagger_docs() {
   echo "Generating swagger docs"
-  (cd /app && GOFLAGS=-mod=mod go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g cmd/server/main.go -o ./docs)
+  (cd /app && GOFLAGS=-mod=mod go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g cmd/server/main.go -o ./docs --parseInternal)
 }
 
 generate_swagger_docs
