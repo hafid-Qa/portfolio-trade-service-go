@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"maps"
+	"slices"
 )
 
 type Portfolio struct {
@@ -14,6 +15,9 @@ func (p Portfolio) UserId() int { return p.userId }
 
 func (p Portfolio) TargetPortfolio() map[Symbol]int {
 	return maps.Clone(p.targetPortfolio)
+}
+func (p Portfolio) Tickers() []Symbol {
+	return slices.Collect(maps.Keys(p.targetPortfolio))
 }
 
 func NewPortfolio(userId int, targetPortfolio map[Symbol]int) (Portfolio, error) {

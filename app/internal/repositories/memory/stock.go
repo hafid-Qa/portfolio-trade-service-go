@@ -16,6 +16,16 @@ type StockRepo struct {
 func (r *StockRepo) All() (map[domain.Symbol]domain.Stock, error) {
 	return maps.Clone(r.stocks), nil
 }
+func (r *StockRepo) GetBySymbols(symbols []domain.Symbol) (map[domain.Symbol]domain.Stock, error) {
+	result := make(map[domain.Symbol]domain.Stock)
+	for _, sym := range symbols {
+		if stock, ok := r.stocks[sym]; ok {
+			result[sym] = stock
+		}
+	}
+	return result, nil
+
+}
 
 type stockDTO struct {
 	Ticker   string `yaml:"ticker"`
