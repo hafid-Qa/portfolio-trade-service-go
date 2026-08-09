@@ -14,7 +14,10 @@ func NewSymbol(s string) (Symbol, error) {
 	}
 	return Symbol(s), nil
 }
+func (s Symbol) String() string {
+	return string(s)
 
+}
 func sumTo100Percent(v map[Symbol]int) (bool, int) {
 	total := 0
 	for _, value := range v {
