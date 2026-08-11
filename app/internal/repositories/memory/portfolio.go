@@ -3,6 +3,7 @@ package memory
 import (
 	"app/internal/domain"
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/goccy/go-yaml"
@@ -18,6 +19,14 @@ func (r *PortfolioRepo) Get(userID int64) (domain.Portfolio, error) {
 		return domain.Portfolio{}, fmt.Errorf("%w: user %d", domain.ErrPortfolioNotFound, userID)
 	}
 	return p, nil
+}
+
+// All is deliberately not part of domain.PortfolioRespository: the domain only ever
+// needs one user's portfolio. This exists solely for the startup referential-integrity
+// check in api.NewServer, which needs to enumerate every portfolio before the app
+// starts serving requests.
+func (r *PortfolioRepo) All() (map[int64]domain.Portfolio, error) {
+	return maps.Clone(r.portfolios), nil
 }
 
 type portfolioDTO struct {

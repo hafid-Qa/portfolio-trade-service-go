@@ -1,17 +1,48 @@
-- user_id: 1
+- user_id: 1          # trade $10000 -> A $4000, B $6000
   target_portfolio:
     A: 40
     B: 60
-- user_id: 2
+
+- user_id: 2          # trade $10000 -> [] (E halted, nothing else to buy)
   target_portfolio:
     E: 100
-- user_id: 3
-  target_portfolio:
+
+- user_id: 3          # trade $10000 -> A $4366, B $5633
+  target_portfolio:  # E excluded, A:B ratio (31:40) preserved across survivors
     A: 31
     B: 40
     E: 29
-- user_id: 4
-  target_portfolio:
+
+- user_id: 4          # trade $1000 -> B $505, C $494
+  target_portfolio:  # D excluded (below the $200 minimum order), B:C ratio preserved
     B: 50
     C: 49
     D: 1
+
+- user_id: 101          # trade $1000 -> A $1000
+  target_portfolio:     # E's halted 81% weight is excluded and A absorbs it all
+    A: 19
+    E: 81
+
+- user_id: 102          # trade $10000 -> A $10000
+  target_portfolio:     # same shape as 101, larger trade amount
+    A: 1
+    E: 99
+
+- user_id: 103          # trade $10000 -> A $5000, B $5000
+  target_portfolio:     # E excluded, A and B split the remainder evenly
+    A: 1
+    B: 1
+    E: 98
+
+- user_id: 201          # trade $10000 -> A $3333, B $6666
+  target_portfolio:     # E excluded, A:B ratio (1:2) preserved across survivors
+    A: 1
+    B: 2
+    E: 97
+
+- user_id: 202          # trade $10000 -> A $1000, B $9000
+  target_portfolio:     # E excluded, A:B ratio (1:9) preserved across survivors
+    A: 1
+    B: 9
+    E: 90
