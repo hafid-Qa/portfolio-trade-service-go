@@ -4,7 +4,9 @@ import (
 	"app/config"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 
 	"app/internal/domain"
 
@@ -30,10 +32,46 @@ func NewServer(config *config.Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to initialize repositories: %w", err)
 	}
 
+	if err := validateReferentialIntegrity(stockRepo, portfolioRepo); err != nil {
+		return nil, err
+	}
+
 	server := &Server{config: config, stockRepo: stockRepo, portfolioRepo: portfolioRepo}
 
 	server.SetUpRouter()
 	return server, nil
+}
+
+// validateReferentialIntegrity fails startup if any portfolio references a ticker
+// absent from the stock catalogue. Both YAML files load once and never change, so
+// this is a startup-time invariant, not something that should surface as a 500 on
+// a customer's request. The runtime UnknownStocksInPortfolio guard in TradeService
+// stays too: it's only safe to catch this at boot because the data is static today;
+// if portfolios ever move to a database, tickers could be delisted at runtime and
+// the request-time check becomes load-bearing again.
+func validateReferentialIntegrity(stockRepo *memory.StockRepo, portfolioRepo *memory.PortfolioRepo) error {
+	knownStocks, err := stockRepo.All()
+	if err != nil {
+		return fmt.Errorf("loading stocks for startup validation: %w", err)
+	}
+	portfolios, err := portfolioRepo.All()
+	if err != nil {
+		return fmt.Errorf("loading portfolios for startup validation: %w", err)
+	}
+
+	dangling := map[domain.Symbol]struct{}{}
+	for _, p := range portfolios {
+		for _, ticker := range p.Tickers() {
+			if _, ok := knownStocks[ticker]; !ok {
+				dangling[ticker] = struct{}{}
+			}
+		}
+	}
+	if len(dangling) > 0 {
+		tickers := slices.Sorted(maps.Keys(dangling))
+		return fmt.Errorf("portfolios reference unknown tickers: %v", tickers)
+	}
+	return nil
 }
 
 func (server *Server) Start(address string) error {
@@ -108,7 +146,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 		orders[i] = OrderResponse{
 			Symbol:   o.Symbol().String(),
 			Amount:   o.Amount(),
-			Quantity: o.Quantity(),
+			Quantity: float64(o.QuantityUnits()) / float64(domain.QuantityPrecision),
 		}
 	}
 

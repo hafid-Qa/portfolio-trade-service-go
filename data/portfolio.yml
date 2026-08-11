@@ -15,3 +15,51 @@
     B: 50
     C: 49
     D: 1
+# Portfolios that break the allocation logic, using ONLY the stock catalogue
+# from the assignment (A ¥1000, B ¥155, C ¥2222, D ¥467, E ¥888 halted).
+#
+# Every weight set below sums to 100 and every trade amount is >= the ¥1000
+# minimum, so all of these are valid input under the stated contract.
+#
+# Exhaustive search over all 2- and 3-symbol portfolios from this catalogue at
+# amounts {1000, 2000, 5000, 10000, 50000} found 8,096 divergent cases.
+# These are the representative ones.
+
+# ---------------------------------------------------------------------------
+# CLASS A - nothing is bought. The whole trade is silently dropped.
+# ---------------------------------------------------------------------------
+
+- user_id: 101          # trade ¥1000 -> returns []   (should be A ¥1000)
+  target_portfolio:     # one point below the cliff: at A=20 this works
+    A: 19
+    E: 81
+
+- user_id: 102          # trade ¥10000 -> returns []  (should be A ¥10000)
+  target_portfolio:
+    A: 1
+    E: 99
+
+- user_id: 103          # trade ¥10000 -> returns []  (should be A ¥5000, B ¥5000)
+  target_portfolio:
+    A: 1
+    B: 1
+    E: 98
+
+# ---------------------------------------------------------------------------
+# CLASS B - the full amount IS spent, but into the wrong symbols.
+# Worse than Class A: the customer sees a fully-invested trade and has to
+# check the ratios to notice their target portfolio was not honoured.
+# ---------------------------------------------------------------------------
+
+- user_id: 201          # trade ¥10000 -> [B ¥10000]
+  target_portfolio:     # A is dropped entirely. Should be A ¥3333, B ¥6666.
+    A: 1                # customer asked for A:B = 1:2, received 0:100
+    B: 2
+    E: 97
+
+- user_id: 202          # trade ¥10000 -> [B ¥10000]
+  target_portfolio:     # should be A ¥1000, B ¥9000
+    A: 1
+    B: 9
+    E: 90
+
