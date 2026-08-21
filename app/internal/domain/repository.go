@@ -5,6 +5,6 @@ type StockRepository interface {
 	GetBySymbols(symbols []Symbol) (map[Symbol]Stock, error)
 }
 
-type PortfolioRespository interface {
+type PortfolioRepository interface {
 	Get(UserId int64) (Portfolio, error)
 }

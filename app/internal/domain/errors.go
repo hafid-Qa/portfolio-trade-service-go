@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// A custom type (below) is for when a caller needs to extract data for the message
+// (errors.As); a sentinel (the var block at the bottom) is for when it doesn't
+// (errors.Is). Two different matching functions, easy to reach for the wrong one.
+
 type PortfolioNotFound struct {
 	userId int
 }

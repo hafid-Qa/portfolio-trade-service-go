@@ -35,3 +35,11 @@ func NewPortfolio(userId int64, targetPortfolio map[Symbol]int) (Portfolio, erro
 		targetPortfolio: maps.Clone(targetPortfolio),
 	}, nil
 }
+
+func sumTo100Percent(v map[Symbol]int) (bool, int) {
+	total := 0
+	for _, value := range v {
+		total += value
+	}
+	return total == 100, total
+}

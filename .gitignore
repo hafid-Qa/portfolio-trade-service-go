@@ -2,16 +2,7 @@
 .env
 .venv/
 .worktrees/
-storage/
-__pycache__/
-.pytest_cache/
-*.pyc
-coverage-reports/
 .claude/
 .cursor/
-**/src/pyproject.toml
-**/src/coverage.xml
-**/src/report.xml
-**/src/.coverage
 **/tmp
 **/docs

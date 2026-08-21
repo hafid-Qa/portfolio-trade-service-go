@@ -2,10 +2,10 @@ package domain
 
 type TradeService struct {
 	stockRepo     StockRepository
-	PortfolioRepo PortfolioRespository
+	PortfolioRepo PortfolioRepository
 }
 
-func NewTradeService(s StockRepository, p PortfolioRespository) *TradeService {
+func NewTradeService(s StockRepository, p PortfolioRepository) *TradeService {
 	return &TradeService{stockRepo: s, PortfolioRepo: p}
 }
 

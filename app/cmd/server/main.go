@@ -22,7 +22,7 @@ func main() {
 		panic("error while on start up")
 	}
 
-	docs.SwaggerInfo.Host = fmt.Sprintf("localhost:%d", config.ServerPort)
+	docs.SwaggerInfo.Host = fmt.Sprintf("localhost:%d", config.ExternalPort)
 
 	server, err := api.NewServer(config)
 	if err != nil {

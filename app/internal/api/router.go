@@ -21,7 +21,7 @@ type Server struct {
 	config        *config.Config
 	router        *gin.Engine
 	stockRepo     domain.StockRepository
-	portfolioRepo domain.PortfolioRespository
+	portfolioRepo domain.PortfolioRepository
 }
 
 func NewServer(config *config.Config) (*Server, error) {
