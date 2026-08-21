@@ -21,7 +21,7 @@ func (r *PortfolioRepo) Get(userID int64) (domain.Portfolio, error) {
 	return p, nil
 }
 
-// All is deliberately not part of domain.PortfolioRespository: the domain only ever
+// All is deliberately not part of domain.PortfolioRepository: the domain only ever
 // needs one user's portfolio. This exists solely for the startup referential-integrity
 // check in api.NewServer, which needs to enumerate every portfolio before the app
 // starts serving requests.

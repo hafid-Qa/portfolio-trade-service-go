@@ -2,6 +2,9 @@ package api
 
 import "app/internal/domain"
 
+// TradeURI and TradeRequest are separate structs, not one, because Gin validates
+// the entire struct passed to each ShouldBind* call: a single struct carrying both
+// uri and json tags would fail validation on whichever half hasn't been bound yet.
 type TradeURI struct {
 	UserID int64 `uri:"user_id" binding:"required,gte=1"`
 }

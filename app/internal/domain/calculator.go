@@ -47,14 +47,14 @@ func Calculate(p Portfolio, stocks map[Symbol]Stock, amount int) ([]Order, error
 		return orders, nil
 	}
 	for _, t := range eligibleSymbols {
-		orderYen := apportion(targetPortfolio[t], amount, ratioSum)
-		quantity := quantityUnits(orderYen, stocks[t].Price())
-		orders = append(orders, NewOrder(t, orderYen, quantity))
+		orderAmount := apportion(targetPortfolio[t], amount, ratioSum)
+		quantity := quantityUnits(orderAmount, stocks[t].Price())
+		orders = append(orders, NewOrder(t, orderAmount, quantity))
 	}
 	return orders, nil
 }
 
-// Yen allocated to one ticker, floored. Integer-only by construction.
+// Dollar amount allocated to one ticker, floored. Integer-only by construction.
 func apportion(ratio int, amount int, ratioSum int) int {
 	return (ratio * amount) / ratioSum
 }

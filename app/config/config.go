@@ -17,6 +17,12 @@ type Config struct {
 
 	ServerPort int    `env:"API_INT_PORT,default=8000"`
 	ServerHOST string `env:"SERVER_HOST,default=0.0.0.0"`
+
+	// ExternalPort is the host-facing port (compose's port mapping), distinct from
+	// ServerPort (what the app binds to inside the container). A browser hitting
+	// Swagger UI needs this one, not ServerPort -- they only look the same because
+	// .env currently sets both to 8000.
+	ExternalPort int `env:"API_EXT_PORT,default=8000"`
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
