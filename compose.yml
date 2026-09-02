@@ -12,5 +12,10 @@ services:
     env_file: .env
     entrypoint: ["/scripts/entrypoint.sh"]
     command: ["air", "-c", ".air.toml"]
-
-
+  calculator:
+    build: ./apps/calc
+    image: calculator:latest
+    container_name: calculator
+    volumes:
+      - ./apps/calc:/app:rw
+    working_dir: /app
