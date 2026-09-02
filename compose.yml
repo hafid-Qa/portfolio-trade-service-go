@@ -1,11 +1,11 @@
 services:
-  api:
-    build: .
-    image: portfolio:latest
-    container_name: portfolio
+  exec-api:
+    build: ./apps/exec-api
+    image: exec-api:latest
+    container_name: exec-api
     volumes:
-      - ./app:/app:rw
-      - ./data:/data:rw
+      - ./apps/exec-api:/app:rw
+      - ./apps/exec-api/data:/data:rw
     working_dir: /app
     ports:
       - ${API_EXT_PORT}:${API_INT_PORT}

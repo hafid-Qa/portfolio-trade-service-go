@@ -26,8 +26,8 @@ func TestMain(m *testing.M) {
 func testServer(t *testing.T) *Server {
 	t.Helper()
 	cfg := &config.Config{
-		StockPath:     "../../../data/stocks.yml",
-		PortfolioPath: "../../../data/portfolio.yml",
+		StockPath:     "../../data/stocks.yml",
+		PortfolioPath: "../../data/portfolio.yml",
 	}
 	server, err := NewServer(cfg)
 	if err != nil {
