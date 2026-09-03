@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package calc.v1;
 
-option go_package = "portfolio-trade-service-go/proto/calc/v1;calcv1";
+option go_package = "proto/calc/v1;calcv1";
 
 service CalcService {
   rpc Calculate(CalculateRequest) returns (CalculateResponse);

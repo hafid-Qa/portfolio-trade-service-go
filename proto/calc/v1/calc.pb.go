@@ -280,7 +280,7 @@ const file_proto_calc_v1_calc_proto_rawDesc = "" +
 	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12%\n" +
 	"\x0equantity_units\x18\x03 \x01(\x03R\rquantityUnits2Q\n" +
 	"\vCalcService\x12B\n" +
-	"\tCalculate\x12\x19.calc.v1.CalculateRequest\x1a\x1a.calc.v1.CalculateResponseB1Z/portfolio-trade-service-go/proto/calc/v1;calcv1b\x06proto3"
+	"\tCalculate\x12\x19.calc.v1.CalculateRequest\x1a\x1a.calc.v1.CalculateResponseB\x16Z\x14proto/calc/v1;calcv1b\x06proto3"
 
 var (
 	file_proto_calc_v1_calc_proto_rawDescOnce sync.Once
