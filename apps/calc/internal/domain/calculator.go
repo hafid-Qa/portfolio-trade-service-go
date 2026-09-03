@@ -5,15 +5,10 @@ import (
 	"slices"
 )
 
-func Calculate(p Portfolio, stocks map[Symbol]Stock, amount int) ([]Order, error) {
-	if amount < MinTradeAmount {
-		return []Order{}, TradeAmountBelowMinimum{
-			amount:   amount,
-			minTrade: MinTradeAmount,
-		}
-	}
-	eligibleSymbols := []Symbol{}
-	targetPortfolio := p.TargetPortfolio()
+func Calculate(portfolio map[string]int, stocks map[string]Stock, investmentAmount int, minOrderAmount int, quantityPrecision int) ([]Order, error) {
+
+	eligibleSymbols := []string{}
+	targetPortfolio := portfolio
 	sortedSymbol := slices.Sorted(maps.Keys(targetPortfolio))
 	for _, symbol := range sortedSymbol {
 		stock, ok := stocks[symbol]
@@ -29,9 +24,9 @@ func Calculate(p Portfolio, stocks map[Symbol]Stock, amount int) ([]Order, error
 		for _, t := range eligibleSymbols {
 			ratioSum += targetPortfolio[t]
 		}
-		survivors := []Symbol{}
+		survivors := []string{}
 		for _, t := range eligibleSymbols {
-			if isOrderable(targetPortfolio[t], amount, ratioSum, stocks[t].Price()) {
+			if isOrderable(targetPortfolio[t], investmentAmount, ratioSum, stocks[t].Price(), minOrderAmount, quantityPrecision) {
 				survivors = append(survivors, t)
 			}
 		}
@@ -47,8 +42,8 @@ func Calculate(p Portfolio, stocks map[Symbol]Stock, amount int) ([]Order, error
 		return orders, nil
 	}
 	for _, t := range eligibleSymbols {
-		orderAmount := apportion(targetPortfolio[t], amount, ratioSum)
-		quantity := quantityUnits(orderAmount, stocks[t].Price())
+		orderAmount := apportion(targetPortfolio[t], investmentAmount, ratioSum)
+		quantity := quantityUnits(orderAmount, stocks[t].Price(), quantityPrecision)
 		orders = append(orders, NewOrder(t, orderAmount, quantity))
 	}
 	return orders, nil
@@ -63,15 +58,15 @@ func apportion(ratio int, amount int, ratioSum int) int {
 // Stays an integer count of units all the way through the domain layer; the API
 // schema is the one place that divides by QUANTITY_PRECISION to place the decimal
 // point, so no float ever appears in this arithmetic.
-func quantityUnits(orderAmount int, price int) int {
-	return (orderAmount * QuantityPrecision) / price
+func quantityUnits(orderAmount int, price int, quantityPrecision int) int {
+	return (orderAmount * quantityPrecision) / price
 }
 
 // Whether this ticker's share produces an order that can actually be placed
-func isOrderable(ratio int, amount int, ratioSum int, price int) bool {
+func isOrderable(ratio int, amount int, ratioSum int, price int, minOrderAmount int, quantityPrecision int) bool {
 	orderAmount := apportion(ratio, amount, ratioSum)
-	if orderAmount < MinOrderAmount {
+	if orderAmount < minOrderAmount {
 		return false
 	}
-	return quantityUnits(orderAmount, price) > 0
+	return quantityUnits(orderAmount, price, quantityPrecision) > 0
 }

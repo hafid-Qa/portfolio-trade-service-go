@@ -1,30 +1,20 @@
 package domain
 
-import (
-	"errors"
-	"testing"
+import "testing"
+
+// Business-rule values previously baked into calculator.go as package
+// constants -- now caller-supplied args, so tests supply them explicitly too.
+const (
+	testMinOrderAmount    = 200
+	testQuantityPrecision = 1000
 )
 
-func mustStock(t *testing.T, ticker string, price int, tradable bool) Stock {
-	t.Helper()
-	s, err := NewStock(ticker, price, tradable)
-	if err != nil {
-		t.Fatalf("NewStock(%q, %d, %v) failed: %v", ticker, price, tradable, err)
-	}
-	return s
-}
-
-func mustPortfolio(t *testing.T, userID int64, weights map[Symbol]int) Portfolio {
-	t.Helper()
-	p, err := NewPortfolio(userID, weights)
-	if err != nil {
-		t.Fatalf("NewPortfolio(%d, %v) failed: %v", userID, weights, err)
-	}
-	return p
+func stock(ticker string, price int, tradable bool) Stock {
+	return Stock{symbol: ticker, price: price, tradable: tradable}
 }
 
 type wantOrder struct {
-	symbol        Symbol
+	symbol        string
 	amount        int
 	quantityUnits int
 }
@@ -47,23 +37,23 @@ func assertOrders(t *testing.T, got []Order, want []wantOrder) {
 // implementation's shipped data (data/portfolio.yml, data/stocks.yml): A=1000,
 // B=155, C=2222, D=467, E=888 (halted).
 func TestCalculate_SpecScenarios(t *testing.T) {
-	stocks := map[Symbol]Stock{
-		"A": mustStock(t, "A", 1000, true),
-		"B": mustStock(t, "B", 155, true),
-		"C": mustStock(t, "C", 2222, true),
-		"D": mustStock(t, "D", 467, true),
-		"E": mustStock(t, "E", 888, false),
+	stocks := map[string]Stock{
+		"A": stock("A", 1000, true),
+		"B": stock("B", 155, true),
+		"C": stock("C", 2222, true),
+		"D": stock("D", 467, true),
+		"E": stock("E", 888, false),
 	}
 
 	tests := []struct {
 		name    string
-		weights map[Symbol]int
+		weights map[string]int
 		amount  int
 		want    []wantOrder
 	}{
 		{
 			name:    "user 1: simple two-way apportionment",
-			weights: map[Symbol]int{"A": 40, "B": 60},
+			weights: map[string]int{"A": 40, "B": 60},
 			amount:  10000,
 			want: []wantOrder{
 				{"A", 4000, 4000},
@@ -72,13 +62,13 @@ func TestCalculate_SpecScenarios(t *testing.T) {
 		},
 		{
 			name:    "user 2: only a halted stock -> empty orders, not an error",
-			weights: map[Symbol]int{"E": 100},
+			weights: map[string]int{"E": 100},
 			amount:  10000,
 			want:    []wantOrder{},
 		},
 		{
 			name:    "user 3: halted stock's weight redistributed to survivors",
-			weights: map[Symbol]int{"A": 31, "B": 40, "E": 29},
+			weights: map[string]int{"A": 31, "B": 40, "E": 29},
 			amount:  10000,
 			want: []wantOrder{
 				{"A", 4366, 4366},
@@ -87,7 +77,7 @@ func TestCalculate_SpecScenarios(t *testing.T) {
 		},
 		{
 			name:    "user 4: below-minimum-order exclusion, then redistribution",
-			weights: map[Symbol]int{"B": 50, "C": 49, "D": 1},
+			weights: map[string]int{"B": 50, "C": 49, "D": 1},
 			amount:  1000,
 			want: []wantOrder{
 				{"B", 505, 3258},
@@ -98,27 +88,12 @@ func TestCalculate_SpecScenarios(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := mustPortfolio(t, 1, tt.weights)
-			got, err := Calculate(p, stocks, tt.amount)
+			got, err := Calculate(tt.weights, stocks, tt.amount, testMinOrderAmount, testQuantityPrecision)
 			if err != nil {
 				t.Fatalf("Calculate() error = %v", err)
 			}
 			assertOrders(t, got, tt.want)
 		})
-	}
-}
-
-func TestCalculate_AmountBelowMinimum(t *testing.T) {
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 100})
-	stocks := map[Symbol]Stock{"A": mustStock(t, "A", 1000, true)}
-
-	_, err := Calculate(p, stocks, MinTradeAmount-1)
-	if err == nil {
-		t.Fatal("expected an error for amount below MinTradeAmount, got nil")
-	}
-	var belowMin TradeAmountBelowMinimum
-	if !errors.As(err, &belowMin) {
-		t.Fatalf("expected error to be TradeAmountBelowMinimum, got %T: %v", err, err)
 	}
 }
 
@@ -130,13 +105,13 @@ func TestCalculate_AmountBelowMinimum(t *testing.T) {
 // it's carrying. A:19 alone clears 200 once E's 81% is out of the denominator
 // (19/19 of 1000 = 1000), but never would if tested against the original 19/100.
 func TestCalculate_HaltedWeightNotInEligibilityDenominator(t *testing.T) {
-	stocks := map[Symbol]Stock{
-		"A": mustStock(t, "A", 1000, true),
-		"E": mustStock(t, "E", 888, false),
+	stocks := map[string]Stock{
+		"A": stock("A", 1000, true),
+		"E": stock("E", 888, false),
 	}
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 19, "E": 81})
+	weights := map[string]int{"A": 19, "E": 81}
 
-	got, err := Calculate(p, stocks, 1000)
+	got, err := Calculate(weights, stocks, 1000, testMinOrderAmount, testQuantityPrecision)
 	if err != nil {
 		t.Fatalf("Calculate() error = %v", err)
 	}
@@ -150,13 +125,13 @@ func TestCalculate_HaltedWeightNotInEligibilityDenominator(t *testing.T) {
 // $200 share can't buy anything, so A should absorb the full $1000, not just its
 // original 80% share ($800).
 func TestCalculate_UnbuyableSurvivorWeightIsRedistributed(t *testing.T) {
-	stocks := map[Symbol]Stock{
-		"A": mustStock(t, "A", 1, true),
-		"B": mustStock(t, "B", 250000, true),
+	stocks := map[string]Stock{
+		"A": stock("A", 1, true),
+		"B": stock("B", 250000, true),
 	}
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 80, "B": 20})
+	weights := map[string]int{"A": 80, "B": 20}
 
-	got, err := Calculate(p, stocks, 1000)
+	got, err := Calculate(weights, stocks, 1000, testMinOrderAmount, testQuantityPrecision)
 	if err != nil {
 		t.Fatalf("Calculate() error = %v", err)
 	}
@@ -167,13 +142,13 @@ func TestCalculate_UnbuyableSurvivorWeightIsRedistributed(t *testing.T) {
 // panic: a valid portfolio (weights sum to 100) can still have an individual
 // symbol at 0%, which must never become the sole, zero-sum eligible set.
 func TestCalculate_ZeroWeightSymbolDoesNotPanic(t *testing.T) {
-	stocks := map[Symbol]Stock{
-		"A": mustStock(t, "A", 1000, true),
-		"E": mustStock(t, "E", 888, false),
+	stocks := map[string]Stock{
+		"A": stock("A", 1000, true),
+		"E": stock("E", 888, false),
 	}
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 0, "E": 100})
+	weights := map[string]int{"A": 0, "E": 100}
 
-	got, err := Calculate(p, stocks, 10000)
+	got, err := Calculate(weights, stocks, 10000, testMinOrderAmount, testQuantityPrecision)
 	if err != nil {
 		t.Fatalf("Calculate() error = %v", err)
 	}
@@ -184,12 +159,12 @@ func TestCalculate_ZeroWeightSymbolDoesNotPanic(t *testing.T) {
 // symbol absent from the stock lookup entirely (as opposed to present-but-halted)
 // -- eligibility must treat "unknown" the same as "not tradable".
 func TestCalculate_UnknownStockExcludedLikeHalted(t *testing.T) {
-	stocks := map[Symbol]Stock{
-		"A": mustStock(t, "A", 1000, true),
+	stocks := map[string]Stock{
+		"A": stock("A", 1000, true),
 	}
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 50, "Z": 50})
+	weights := map[string]int{"A": 50, "Z": 50}
 
-	got, err := Calculate(p, stocks, 10000)
+	got, err := Calculate(weights, stocks, 10000, testMinOrderAmount, testQuantityPrecision)
 	if err != nil {
 		t.Fatalf("Calculate() error = %v", err)
 	}
@@ -200,10 +175,10 @@ func TestCalculate_UnknownStockExcludedLikeHalted(t *testing.T) {
 // $201 against a $100 share price should buy exactly 2.010 units (2010
 // thousandths), the case a float-division mistake gets subtly wrong.
 func TestCalculate_QuantityPrecision(t *testing.T) {
-	stocks := map[Symbol]Stock{"A": mustStock(t, "A", 100, true)}
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 100})
+	stocks := map[string]Stock{"A": stock("A", 100, true)}
+	weights := map[string]int{"A": 100}
 
-	got, err := Calculate(p, stocks, 1000)
+	got, err := Calculate(weights, stocks, 1000, testMinOrderAmount, testQuantityPrecision)
 	if err != nil {
 		t.Fatalf("Calculate() error = %v", err)
 	}
@@ -217,13 +192,13 @@ func TestCalculate_QuantityPrecision(t *testing.T) {
 // zero-quantity order, and (per the fix above) its weight must be absorbed by
 // the remaining survivor rather than vanish.
 func TestCalculate_TooExpensiveToBuyMinimumUnitIsDropped(t *testing.T) {
-	stocks := map[Symbol]Stock{
-		"A": mustStock(t, "A", 1000, true),
-		"X": mustStock(t, "X", 300000, true), // needs >= 300 dollars for 0.001 units
+	stocks := map[string]Stock{
+		"A": stock("A", 1000, true),
+		"X": stock("X", 300000, true), // needs >= 300 dollars for 0.001 units
 	}
-	p := mustPortfolio(t, 1, map[Symbol]int{"A": 98, "X": 2})
+	weights := map[string]int{"A": 98, "X": 2}
 
-	got, err := Calculate(p, stocks, 10000)
+	got, err := Calculate(weights, stocks, 10000, testMinOrderAmount, testQuantityPrecision)
 	if err != nil {
 		t.Fatalf("Calculate() error = %v", err)
 	}
