@@ -12,19 +12,33 @@ import (
 
 	"app/internal/repositories/memory"
 
+	calcv1 "proto/gen"
+
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type Server struct {
-	config        *config.Config
-	router        *gin.Engine
-	stockRepo     domain.StockRepository
-	portfolioRepo domain.PortfolioRepository
+	config       *config.Config
+	router       *gin.Engine
+	tradeService *domain.TradeService
 }
 
 func NewServer(config *config.Config) (*Server, error) {
+	calcConn, err := grpc.NewClient(config.CalcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dialing trade-calc at %q: %w", config.CalcAddr, err)
+	}
+	return newServer(config, calcv1.NewCalcServiceClient(calcConn))
+}
+
+// newServer takes the calc client as a parameter (rather than dialing it
+// itself) so tests can inject a fake instead of needing a live trade-calc.
+func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, error) {
 	stockRepo, sErr := memory.NewStockRepo(config.StockPath)
 
 	portfolioRepo, pErr := memory.NewPortfolioRepo(config.PortfolioPath)
@@ -36,7 +50,9 @@ func NewServer(config *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	server := &Server{config: config, stockRepo: stockRepo, portfolioRepo: portfolioRepo}
+	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, calc)
+
+	server := &Server{config: config, tradeService: tradeService}
 
 	server.SetUpRouter()
 	return server, nil
@@ -130,8 +146,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 		return
 	}
 
-	tradeService := domain.NewTradeService(server.stockRepo, server.portfolioRepo)
-	res, err := tradeService.CreateTrade(uri.UserID, req.Amount)
+	res, err := server.tradeService.CreateTrade(c.Request.Context(), uri.UserID, req.Amount)
 	if err != nil {
 		if errors.Is(err, domain.ErrPortfolioNotFound) {
 			c.JSON(http.StatusNotFound, errorResponse(err))

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,10 @@ import (
 
 	"app/config"
 
+	calcv1 "proto/gen"
+
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 func TestMain(m *testing.M) {
@@ -19,10 +23,24 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// fakeCalcClient stands in for a live trade-calc service in tests that need
+// a real response -- trade-calc's actual allocation algorithm lives in a
+// different module and isn't available to import here.
+type fakeCalcClient struct {
+	resp *calcv1.CalculateResponse
+	err  error
+}
+
+func (f *fakeCalcClient) Calculate(ctx context.Context, in *calcv1.CalculateRequest, opts ...grpc.CallOption) (*calcv1.CalculateResponse, error) {
+	return f.resp, f.err
+}
+
 // testServer builds a real Server against the shipped reference data
 // (data/stocks.yml, data/portfolio.yml), the same files the app runs against
 // in production -- this is what proves the shipped configuration produces the
-// documented numbers, not a hand-rolled fixture that could drift from it.
+// documented numbers, not a hand-rolled fixture that could drift from it. It
+// dials a real (lazy, non-blocking) gRPC client, so it's only safe to use for
+// requests that never actually reach trade-calc.
 func testServer(t *testing.T) *Server {
 	t.Helper()
 	cfg := &config.Config{
@@ -32,6 +50,21 @@ func testServer(t *testing.T) *Server {
 	server, err := NewServer(cfg)
 	if err != nil {
 		t.Fatalf("NewServer() error = %v", err)
+	}
+	return server
+}
+
+// testServerWithCalc is testServer's counterpart for requests that do need a
+// response from trade-calc -- calc is a fake with a canned response instead.
+func testServerWithCalc(t *testing.T, calc *fakeCalcClient) *Server {
+	t.Helper()
+	cfg := &config.Config{
+		StockPath:     "../../data/stocks.yml",
+		PortfolioPath: "../../data/portfolio.yml",
+	}
+	server, err := newServer(cfg, calc)
+	if err != nil {
+		t.Fatalf("newServer() error = %v", err)
 	}
 	return server
 }
@@ -55,7 +88,11 @@ func TestHealthHandler(t *testing.T) {
 // TestTradeHandler_HappyPath is user 1 from the shipped data (A:40, B:60),
 // matching the documented spec example exactly.
 func TestTradeHandler_HappyPath(t *testing.T) {
-	server := testServer(t)
+	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{
+		{Symbol: "A", Amount: 4000, QuantityUnits: 4000},
+		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
+	}}}
+	server := testServerWithCalc(t, calc)
 	w := doRequest(server, http.MethodPost, "/api/users/1/trade", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
@@ -110,7 +147,8 @@ func TestTradeHandler_InvalidUserID(t *testing.T) {
 // TestTradeHandler_HaltedOnlyPortfolio is user 2 (E:100, halted): a fully
 // halted portfolio must return an empty order list with 200, not an error.
 func TestTradeHandler_HaltedOnlyPortfolio(t *testing.T) {
-	server := testServer(t)
+	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{}}}
+	server := testServerWithCalc(t, calc)
 	w := doRequest(server, http.MethodPost, "/api/users/2/trade", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())

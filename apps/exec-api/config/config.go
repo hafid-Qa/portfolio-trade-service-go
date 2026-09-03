@@ -18,6 +18,10 @@ type Config struct {
 	ServerPort int    `env:"API_INT_PORT,default=8000"`
 	ServerHOST string `env:"SERVER_HOST,default=0.0.0.0"`
 
+	// CalcAddr is trade-calc's gRPC address (compose sets this to calc:$CALC_GRPC_PORT,
+	// resolved via Docker's default network service-name DNS).
+	CalcAddr string `env:"CALC_ADDR,default=calc:50051"`
+
 	// ExternalPort is the host-facing port (compose's port mapping), distinct from
 	// ServerPort (what the app binds to inside the container). A browser hitting
 	// Swagger UI needs this one, not ServerPort -- they only look the same because
