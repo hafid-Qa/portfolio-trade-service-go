@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package calc.v1;
+
+option go_package = "portfolio-trade-service-go/proto/calc/v1;calcv1";
+
+service CalcService {
+  rpc Calculate(CalculateRequest) returns (CalculateResponse);
+}
+message CalculateRequest {
+  map<string, int64> target_portfolio = 1;
+  map<string, StockInfo> stocks = 2;
+  int64 investment_amount = 3;
+  int64 min_order_amount = 4;
+  int64 quantity_precision = 5;
+}
+message StockInfo {
+  int64 price = 1;
+  bool tradable = 2;
+}
+message CalculateResponse {
+  repeated Order orders = 1;
+}
+message Order {
+  string symbol = 1;
+  int64 amount = 2;
+  int64 quantity_units = 3;
+}
