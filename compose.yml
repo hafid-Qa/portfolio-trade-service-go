@@ -1,6 +1,8 @@
 services:
   exec-api:
-    build: ./apps/exec-api
+    build:
+      context: .
+      dockerfile: apps/exec-api/Dockerfile
     image: exec-api:latest
     container_name: exec-api
     volumes:
@@ -18,7 +20,9 @@ services:
       calc:
         condition: service_started
   calc:
-    build: ./apps/calc
+    build:
+      context: .
+      dockerfile: apps/calc/Dockerfile
     image: calc:latest
     container_name: calc
     volumes:

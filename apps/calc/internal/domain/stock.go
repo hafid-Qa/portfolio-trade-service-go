@@ -9,3 +9,7 @@ type Stock struct {
 func (s Stock) Symbol() string { return s.symbol }
 func (s Stock) Price() int     { return s.price }
 func (s Stock) Tradable() bool { return s.tradable }
+
+func NewStock(symbol string, price int, tradable bool) Stock {
+	return Stock{symbol: symbol, price: price, tradable: tradable}
+}

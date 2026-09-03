@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        v7.35.0
-// source: proto/calc/v1/calc.proto
+// source: calc.proto
 
 package calcv1
 
@@ -34,7 +34,7 @@ type CalculateRequest struct {
 
 func (x *CalculateRequest) Reset() {
 	*x = CalculateRequest{}
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[0]
+	mi := &file_calc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *CalculateRequest) String() string {
 func (*CalculateRequest) ProtoMessage() {}
 
 func (x *CalculateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[0]
+	mi := &file_calc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +59,7 @@ func (x *CalculateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CalculateRequest.ProtoReflect.Descriptor instead.
 func (*CalculateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_calc_v1_calc_proto_rawDescGZIP(), []int{0}
+	return file_calc_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CalculateRequest) GetTargetPortfolio() map[string]int64 {
@@ -107,7 +107,7 @@ type StockInfo struct {
 
 func (x *StockInfo) Reset() {
 	*x = StockInfo{}
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[1]
+	mi := &file_calc_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -119,7 +119,7 @@ func (x *StockInfo) String() string {
 func (*StockInfo) ProtoMessage() {}
 
 func (x *StockInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[1]
+	mi := &file_calc_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -132,7 +132,7 @@ func (x *StockInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StockInfo.ProtoReflect.Descriptor instead.
 func (*StockInfo) Descriptor() ([]byte, []int) {
-	return file_proto_calc_v1_calc_proto_rawDescGZIP(), []int{1}
+	return file_calc_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *StockInfo) GetPrice() int64 {
@@ -158,7 +158,7 @@ type CalculateResponse struct {
 
 func (x *CalculateResponse) Reset() {
 	*x = CalculateResponse{}
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[2]
+	mi := &file_calc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -170,7 +170,7 @@ func (x *CalculateResponse) String() string {
 func (*CalculateResponse) ProtoMessage() {}
 
 func (x *CalculateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[2]
+	mi := &file_calc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -183,7 +183,7 @@ func (x *CalculateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CalculateResponse.ProtoReflect.Descriptor instead.
 func (*CalculateResponse) Descriptor() ([]byte, []int) {
-	return file_proto_calc_v1_calc_proto_rawDescGZIP(), []int{2}
+	return file_calc_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CalculateResponse) GetOrders() []*Order {
@@ -204,7 +204,7 @@ type Order struct {
 
 func (x *Order) Reset() {
 	*x = Order{}
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[3]
+	mi := &file_calc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +216,7 @@ func (x *Order) String() string {
 func (*Order) ProtoMessage() {}
 
 func (x *Order) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_calc_v1_calc_proto_msgTypes[3]
+	mi := &file_calc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,7 +229,7 @@ func (x *Order) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Order.ProtoReflect.Descriptor instead.
 func (*Order) Descriptor() ([]byte, []int) {
-	return file_proto_calc_v1_calc_proto_rawDescGZIP(), []int{3}
+	return file_calc_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Order) GetSymbol() string {
@@ -253,11 +253,12 @@ func (x *Order) GetQuantityUnits() int64 {
 	return 0
 }
 
-var File_proto_calc_v1_calc_proto protoreflect.FileDescriptor
+var File_calc_proto protoreflect.FileDescriptor
 
-const file_proto_calc_v1_calc_proto_rawDesc = "" +
+const file_calc_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/calc/v1/calc.proto\x12\acalc.v1\"\xc5\x03\n" +
+	"\n" +
+	"calc.proto\x12\acalc.v1\"\xc5\x03\n" +
 	"\x10CalculateRequest\x12Y\n" +
 	"\x10target_portfolio\x18\x01 \x03(\v2..calc.v1.CalculateRequest.TargetPortfolioEntryR\x0ftargetPortfolio\x12=\n" +
 	"\x06stocks\x18\x02 \x03(\v2%.calc.v1.CalculateRequest.StocksEntryR\x06stocks\x12+\n" +
@@ -283,19 +284,19 @@ const file_proto_calc_v1_calc_proto_rawDesc = "" +
 	"\tCalculate\x12\x19.calc.v1.CalculateRequest\x1a\x1a.calc.v1.CalculateResponseB\x16Z\x14proto/calc/v1;calcv1b\x06proto3"
 
 var (
-	file_proto_calc_v1_calc_proto_rawDescOnce sync.Once
-	file_proto_calc_v1_calc_proto_rawDescData []byte
+	file_calc_proto_rawDescOnce sync.Once
+	file_calc_proto_rawDescData []byte
 )
 
-func file_proto_calc_v1_calc_proto_rawDescGZIP() []byte {
-	file_proto_calc_v1_calc_proto_rawDescOnce.Do(func() {
-		file_proto_calc_v1_calc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_calc_v1_calc_proto_rawDesc), len(file_proto_calc_v1_calc_proto_rawDesc)))
+func file_calc_proto_rawDescGZIP() []byte {
+	file_calc_proto_rawDescOnce.Do(func() {
+		file_calc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_calc_proto_rawDesc), len(file_calc_proto_rawDesc)))
 	})
-	return file_proto_calc_v1_calc_proto_rawDescData
+	return file_calc_proto_rawDescData
 }
 
-var file_proto_calc_v1_calc_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_proto_calc_v1_calc_proto_goTypes = []any{
+var file_calc_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_calc_proto_goTypes = []any{
 	(*CalculateRequest)(nil),  // 0: calc.v1.CalculateRequest
 	(*StockInfo)(nil),         // 1: calc.v1.StockInfo
 	(*CalculateResponse)(nil), // 2: calc.v1.CalculateResponse
@@ -303,7 +304,7 @@ var file_proto_calc_v1_calc_proto_goTypes = []any{
 	nil,                       // 4: calc.v1.CalculateRequest.TargetPortfolioEntry
 	nil,                       // 5: calc.v1.CalculateRequest.StocksEntry
 }
-var file_proto_calc_v1_calc_proto_depIdxs = []int32{
+var file_calc_proto_depIdxs = []int32{
 	4, // 0: calc.v1.CalculateRequest.target_portfolio:type_name -> calc.v1.CalculateRequest.TargetPortfolioEntry
 	5, // 1: calc.v1.CalculateRequest.stocks:type_name -> calc.v1.CalculateRequest.StocksEntry
 	3, // 2: calc.v1.CalculateResponse.orders:type_name -> calc.v1.Order
@@ -317,26 +318,26 @@ var file_proto_calc_v1_calc_proto_depIdxs = []int32{
 	0, // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_proto_calc_v1_calc_proto_init() }
-func file_proto_calc_v1_calc_proto_init() {
-	if File_proto_calc_v1_calc_proto != nil {
+func init() { file_calc_proto_init() }
+func file_calc_proto_init() {
+	if File_calc_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_calc_v1_calc_proto_rawDesc), len(file_proto_calc_v1_calc_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_calc_proto_rawDesc), len(file_calc_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_calc_v1_calc_proto_goTypes,
-		DependencyIndexes: file_proto_calc_v1_calc_proto_depIdxs,
-		MessageInfos:      file_proto_calc_v1_calc_proto_msgTypes,
+		GoTypes:           file_calc_proto_goTypes,
+		DependencyIndexes: file_calc_proto_depIdxs,
+		MessageInfos:      file_calc_proto_msgTypes,
 	}.Build()
-	File_proto_calc_v1_calc_proto = out.File
-	file_proto_calc_v1_calc_proto_goTypes = nil
-	file_proto_calc_v1_calc_proto_depIdxs = nil
+	File_calc_proto = out.File
+	file_calc_proto_goTypes = nil
+	file_calc_proto_depIdxs = nil
 }
