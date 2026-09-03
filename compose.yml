@@ -10,12 +10,21 @@ services:
     ports:
       - ${API_EXT_PORT}:${API_INT_PORT}
     env_file: .env
+    environment:
+      CALC_ADDR: calc:${CALC_GRPC_PORT}
     entrypoint: ["/scripts/entrypoint.sh"]
     command: ["air", "-c", ".air.toml"]
-  calculator:
+    depends_on:
+      calc:
+        condition: service_started
+  calc:
     build: ./apps/calc
-    image: calculator:latest
-    container_name: calculator
+    image: calc:latest
+    container_name: calc
     volumes:
       - ./apps/calc:/app:rw
     working_dir: /app
+    ports:
+      - ${CALC_GRPC_EXT_PORT}:${CALC_GRPC_PORT}
+    env_file: .env
+    command: ["go", "run", "./cmd"]
