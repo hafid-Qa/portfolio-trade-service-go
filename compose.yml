@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: apps/exec-api/Dockerfile
-    image: exec-api:latest
-    container_name: exec-api
+    image: api:latest
+    container_name: api
     volumes:
       - ./apps/exec-api:/app:rw
       - ./data:/data:rw
