@@ -7,7 +7,7 @@ services:
     container_name: exec-api
     volumes:
       - ./apps/exec-api:/app:rw
-      - ./apps/exec-api/data:/data:rw
+      - ./data:/data:rw
     working_dir: /app
     ports:
       - ${API_EXT_PORT}:${API_INT_PORT}
@@ -32,3 +32,29 @@ services:
       - ${CALC_GRPC_EXT_PORT}:${CALC_GRPC_PORT}
     env_file: .env
     command: ["go", "run", "./cmd"]
+
+  db:
+    container_name: db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD? Variable not set}
+      - POSTGRES_USER=${DB_USERNAME? Variable not set}
+      - POSTGRES_DB=${DB_NAME? Variable not set}
+      - PGPORT=${DB_PORT? Variable not set}
+    volumes:
+      - ${DB_DATA? Variable not set}:/var/lib/postgresql/data:rw
+    networks:
+      - default
+    ports:
+      - ${DB_EXT_PORT? Variable not set}:${DB_PORT? Variable not set}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -p $${PGPORT} || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 100
+      start_period: 10s
