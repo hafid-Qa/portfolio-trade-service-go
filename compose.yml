@@ -1,5 +1,5 @@
 services:
-  exec-api:
+  api:
     build:
       context: .
       dockerfile: apps/exec-api/Dockerfile

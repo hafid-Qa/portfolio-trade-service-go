@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose run --rm exec-api sh -c "go vet ./... && go test ./..."
+      - run: docker compose run --rm api sh -c "go vet ./... && go test ./..."
       - run: docker compose run --rm calc sh -c "go vet ./... && go test ./..."
       - uses: actions/setup-go@v5
         with:
