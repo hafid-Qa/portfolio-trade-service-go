@@ -27,6 +27,13 @@ type Config struct {
 	// Swagger UI needs this one, not ServerPort -- they only look the same because
 	// .env currently sets both to 8000.
 	ExternalPort int `env:"API_EXT_PORT,default=8000"`
+
+	// DB config
+	DBHostName string `env:"DB_HOSTNAME,default=db"`
+	DBUserName string `env:"DB_USERNAME,default=postgres"`
+	DBPassword string `env:"DB_PASSWORD"`
+	DBNAME     string `env:"DB_NAME"`
+	DBPort     int    `env:"DB_PORT,default=5432"`
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {

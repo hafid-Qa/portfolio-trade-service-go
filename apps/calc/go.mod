@@ -3,6 +3,7 @@ module calc
 go 1.26.3
 
 require (
+	github.com/sethvargo/go-envconfig v1.4.3
 	google.golang.org/grpc v1.83.2
 	proto v0.0.0
 )

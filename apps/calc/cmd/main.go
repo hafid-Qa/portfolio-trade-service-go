@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 
@@ -9,6 +10,7 @@ import (
 
 	calcv1 "proto/gen"
 
+	"calc/config"
 	"calc/internal/domain"
 )
 
@@ -59,7 +61,13 @@ func toProtoOrders(orders []domain.Order) []*calcv1.Order {
 }
 
 func main() {
-	lis, err := net.Listen("tcp", ":50051")
+	cfg, err := config.LoadConfig(context.Background())
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	addr := fmt.Sprintf(":%d", cfg.GRPCPort)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -67,7 +75,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	calcv1.RegisterCalcServiceServer(grpcServer, &server{})
 
-	log.Println("calc gRPC server listening on :50051")
+	log.Printf("calc gRPC server listening on %s", addr)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
