@@ -52,6 +52,7 @@ require (
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/goccy/go-yaml v1.19.2
+	github.com/lib/pq v1.12.3
 	github.com/sethvargo/go-envconfig v1.4.3
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
