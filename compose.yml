@@ -1,3 +1,4 @@
+name: portfolio-trade-service
 services:
   api:
     build:
@@ -60,3 +61,18 @@ services:
       timeout: 5s
       retries: 100
       start_period: 10s
+  db_test:
+    container_name: db_test
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD? Variable not set}
+      - POSTGRES_USER=${DB_USERNAME? Variable not set}
+      - POSTGRES_DB=${DB_NAME? Variable not set}
+      - PGPORT=${DB_PORT? Variable not set}
+    networks:
+      - default
+
+networks:
+  default:
+    name: portfolio-trade-service

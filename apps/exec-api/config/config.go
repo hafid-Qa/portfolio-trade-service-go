@@ -35,6 +35,8 @@ type Config struct {
 	DBName     string `env:"DB_NAME,required"`
 	DBPort     int    `env:"DB_PORT,default=5432"`
 	DBUrl      string
+	TestDBUrl      string
+	
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
@@ -61,7 +63,9 @@ func LoadConfig(ctx context.Context) (*Config, error) {
 	}
 	cfg.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s",
 		cfg.DBUserName, cfg.DBPassword, cfg.DBHostName, cfg.DBPort, cfg.DBName)
-
+	testDBHostName:=	fmt.Sprintf("%s_test")
+	cfg.TestDBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s",
+		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName)
 	return cfg, nil
 }
 
