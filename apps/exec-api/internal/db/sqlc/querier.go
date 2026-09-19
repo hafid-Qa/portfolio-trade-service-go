@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade, error)
 	GetPortfolioByUserID(ctx context.Context, userID int32) (Portfolio, error)
 	GetStocksByTickers(ctx context.Context, dollar_1 []string) ([]Stock, error)
 	ListStocks(ctx context.Context) ([]Stock, error)

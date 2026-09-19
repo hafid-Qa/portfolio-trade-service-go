@@ -25,3 +25,14 @@ type Stock struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+type Trade struct {
+	ID              int32           `json:"id"`
+	UserID          int32           `json:"user_id"`
+	Amount          int32           `json:"amount"`
+	TargetPortfolio json.RawMessage `json:"target_portfolio"`
+	Orders          json.RawMessage `json:"orders"`
+	Status          string          `json:"status"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
