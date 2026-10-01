@@ -39,9 +39,10 @@ db_schema:
 # Regenerate Go code from internal/db/query/*.sql into internal/db/sqlc/ (see app/sqlc.yaml).
 sqlc:
 	docker compose exec api sqlc generate
-# Run go vet and go test for both api and calc services.
+# Run go vet and go test for both api and calc services. Uses compose.test.yml
+# to bring up db_test (healthchecked) alongside the normal stack.
 test:
-	docker compose run --rm api sh -c "go vet ./... && go test ./..."
-	docker compose run --rm calc sh -c "go vet ./... && go test ./..."
+	docker compose -f compose.yml -f compose.test.yml run --rm api sh -c "go vet ./... && go test ./..."
+	docker compose -f compose.yml -f compose.test.yml run --rm calc sh -c "go vet ./... && go test ./..."
 
 .PHONY: buf migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc test
