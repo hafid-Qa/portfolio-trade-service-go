@@ -11,6 +11,41 @@ import (
 	"github.com/lib/pq"
 )
 
+const createStock = `-- name: CreateStock :one
+INSERT INTO stocks (ticker, price, tradable)
+VALUES ($1, $2, $3)
+RETURNING id, ticker, price, tradable, created_at, updated_at
+`
+
+type CreateStockParams struct {
+	Ticker   string `json:"ticker"`
+	Price    int32  `json:"price"`
+	Tradable bool   `json:"tradable"`
+}
+
+func (q *Queries) CreateStock(ctx context.Context, arg CreateStockParams) (Stock, error) {
+	row := q.db.QueryRowContext(ctx, createStock, arg.Ticker, arg.Price, arg.Tradable)
+	var i Stock
+	err := row.Scan(
+		&i.ID,
+		&i.Ticker,
+		&i.Price,
+		&i.Tradable,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteStock = `-- name: DeleteStock :exec
+DELETE FROM stocks WHERE ticker = $1
+`
+
+func (q *Queries) DeleteStock(ctx context.Context, ticker string) error {
+	_, err := q.db.ExecContext(ctx, deleteStock, ticker)
+	return err
+}
+
 const getStocksByTickers = `-- name: GetStocksByTickers :many
 SELECT id, ticker, price, tradable, created_at, updated_at FROM stocks WHERE ticker = ANY($1::varchar[])
 `

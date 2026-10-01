@@ -7,7 +7,41 @@ package sqlc
 
 import (
 	"context"
+	"encoding/json"
 )
+
+const createPortfolio = `-- name: CreatePortfolio :one
+INSERT INTO portfolios (user_id, target_portfolio)
+VALUES ($1, $2)
+RETURNING id, user_id, target_portfolio, created_at, updated_at
+`
+
+type CreatePortfolioParams struct {
+	UserID          int32           `json:"user_id"`
+	TargetPortfolio json.RawMessage `json:"target_portfolio"`
+}
+
+func (q *Queries) CreatePortfolio(ctx context.Context, arg CreatePortfolioParams) (Portfolio, error) {
+	row := q.db.QueryRowContext(ctx, createPortfolio, arg.UserID, arg.TargetPortfolio)
+	var i Portfolio
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TargetPortfolio,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deletePortfolio = `-- name: DeletePortfolio :exec
+DELETE FROM portfolios WHERE user_id = $1
+`
+
+func (q *Queries) DeletePortfolio(ctx context.Context, userID int32) error {
+	_, err := q.db.ExecContext(ctx, deletePortfolio, userID)
+	return err
+}
 
 const getPortfolioByUserID = `-- name: GetPortfolioByUserID :one
 SELECT id, user_id, target_portfolio, created_at, updated_at FROM portfolios WHERE user_id = $1
@@ -24,4 +58,37 @@ func (q *Queries) GetPortfolioByUserID(ctx context.Context, userID int32) (Portf
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listPortfolios = `-- name: ListPortfolios :many
+SELECT id, user_id, target_portfolio, created_at, updated_at FROM portfolios
+`
+
+func (q *Queries) ListPortfolios(ctx context.Context) ([]Portfolio, error) {
+	rows, err := q.db.QueryContext(ctx, listPortfolios)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Portfolio{}
+	for rows.Next() {
+		var i Portfolio
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.TargetPortfolio,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
