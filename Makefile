@@ -1,5 +1,5 @@
 MIGRATIONS_PATH = internal/db/migrations
-DB_URL = postgresql://$$DB_USERNAME:$$DB_PASSWORD@$$DB_HOSTNAME:$$DB_PORT/$$DB_NAME?sslmode=disable
+DB_URL = postgresql://$$DB_USERNAME:$$DB_PASSWORD@$$DB_HOSTNAME:$$DB_PORT/$$DB_NAME?sslmode=$$DB_SSLMODE
 
 #  Generate Go code from proto/calc/v1/calc.proto into proto/gen/calc/v1/*.pb.go.
 buf:
