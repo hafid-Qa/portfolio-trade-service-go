@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -24,7 +25,7 @@ func TestNewPortfolioRepo_Valid(t *testing.T) {
 		t.Fatalf("NewPortfolioRepo() error = %v", err)
 	}
 
-	p, err := repo.Get(1)
+	p, err := repo.Get(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("Get(1) error = %v", err)
 	}
@@ -82,7 +83,7 @@ func TestPortfolioRepo_Get_NotFound(t *testing.T) {
 		t.Fatalf("NewPortfolioRepo() error = %v", err)
 	}
 
-	_, err = repo.Get(999)
+	_, err = repo.Get(context.Background(), 999)
 	if !errors.Is(err, domain.ErrPortfolioNotFound) {
 		t.Errorf("Get(999) error = %v, want ErrPortfolioNotFound", err)
 	}
@@ -99,10 +100,10 @@ func TestPortfolioRepo_All_ReturnsACopy(t *testing.T) {
 		t.Fatalf("NewPortfolioRepo() error = %v", err)
 	}
 
-	all, _ := repo.All()
+	all, _ := repo.All(context.Background())
 	delete(all, 1)
 
-	again, _ := repo.All()
+	again, _ := repo.All(context.Background())
 	if _, ok := again[1]; !ok {
 		t.Error("mutating the map returned by All() affected the repo's internal state")
 	}

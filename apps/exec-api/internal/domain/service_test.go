@@ -16,11 +16,11 @@ type fakeStockRepo struct {
 	err    error
 }
 
-func (f *fakeStockRepo) All() (map[Symbol]Stock, error) {
+func (f *fakeStockRepo) All(ctx context.Context) (map[Symbol]Stock, error) {
 	return f.stocks, f.err
 }
 
-func (f *fakeStockRepo) GetBySymbols(symbols []Symbol) (map[Symbol]Stock, error) {
+func (f *fakeStockRepo) GetBySymbols(ctx context.Context, symbols []Symbol) (map[Symbol]Stock, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -38,7 +38,7 @@ type fakePortfolioRepo struct {
 	err        error
 }
 
-func (f *fakePortfolioRepo) Get(userID int64) (Portfolio, error) {
+func (f *fakePortfolioRepo) Get(ctx context.Context, userID int64) (Portfolio, error) {
 	if f.err != nil {
 		return Portfolio{}, f.err
 	}

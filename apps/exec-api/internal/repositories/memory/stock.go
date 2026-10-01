@@ -2,6 +2,7 @@ package memory
 
 import (
 	"app/internal/domain"
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -13,10 +14,10 @@ type StockRepo struct {
 	stocks map[domain.Symbol]domain.Stock
 }
 
-func (r *StockRepo) All() (map[domain.Symbol]domain.Stock, error) {
+func (r *StockRepo) All(ctx context.Context) (map[domain.Symbol]domain.Stock, error) {
 	return maps.Clone(r.stocks), nil
 }
-func (r *StockRepo) GetBySymbols(symbols []domain.Symbol) (map[domain.Symbol]domain.Stock, error) {
+func (r *StockRepo) GetBySymbols(ctx context.Context, symbols []domain.Symbol) (map[domain.Symbol]domain.Stock, error) {
 	result := make(map[domain.Symbol]domain.Stock)
 	for _, sym := range symbols {
 		if stock, ok := r.stocks[sym]; ok {

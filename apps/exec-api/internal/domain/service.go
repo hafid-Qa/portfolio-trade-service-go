@@ -17,12 +17,12 @@ func NewTradeService(s StockRepository, p PortfolioRepository, calc calcv1.CalcS
 }
 
 func (s *TradeService) CreateTrade(ctx context.Context, userID int64, amount int) (TradeResult, error) {
-	portfolio, err := s.PortfolioRepo.Get(userID)
+	portfolio, err := s.PortfolioRepo.Get(ctx, userID)
 	if err != nil {
 		return TradeResult{}, err
 	}
 	tickers := portfolio.Tickers()
-	stocks, err := s.stockRepo.GetBySymbols(tickers)
+	stocks, err := s.stockRepo.GetBySymbols(ctx, tickers)
 	if err != nil {
 		return TradeResult{}, err
 	}

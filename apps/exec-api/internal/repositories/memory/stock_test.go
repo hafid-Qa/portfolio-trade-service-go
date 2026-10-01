@@ -1,10 +1,12 @@
 package memory
 
 import (
-	"app/internal/domain"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"app/internal/domain"
 )
 
 func writeFile(t *testing.T, name, content string) string {
@@ -31,7 +33,7 @@ func TestNewStockRepo_Valid(t *testing.T) {
 		t.Fatalf("NewStockRepo() error = %v", err)
 	}
 
-	all, err := repo.All()
+	all, err := repo.All(context.Background())
 	if err != nil {
 		t.Fatalf("All() error = %v", err)
 	}
@@ -59,7 +61,7 @@ func TestNewStockRepo_TradableDefaultsToTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStockRepo() error = %v", err)
 	}
-	all, _ := repo.All()
+	all, _ := repo.All(context.Background())
 	if !all["A"].Tradable() {
 		t.Errorf("Tradable() = false for a row omitting the field, want true")
 	}
@@ -104,10 +106,10 @@ func TestStockRepo_All_ReturnsACopy(t *testing.T) {
 		t.Fatalf("NewStockRepo() error = %v", err)
 	}
 
-	all, _ := repo.All()
+	all, _ := repo.All(context.Background())
 	delete(all, "A")
 
-	again, _ := repo.All()
+	again, _ := repo.All(context.Background())
 	if _, ok := again["A"]; !ok {
 		t.Error("mutating the map returned by All() affected the repo's internal state")
 	}
@@ -124,7 +126,7 @@ func TestStockRepo_GetBySymbols_PartialMatch(t *testing.T) {
 		t.Fatalf("NewStockRepo() error = %v", err)
 	}
 
-	got, err := repo.GetBySymbols([]domain.Symbol{"A", "Z"})
+	got, err := repo.GetBySymbols(context.Background(), []domain.Symbol{"A", "Z"})
 	if err != nil {
 		t.Fatalf("GetBySymbols() error = %v", err)
 	}

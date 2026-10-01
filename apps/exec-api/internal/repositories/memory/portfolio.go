@@ -2,6 +2,7 @@ package memory
 
 import (
 	"app/internal/domain"
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -13,7 +14,7 @@ type PortfolioRepo struct {
 	portfolios map[int64]domain.Portfolio
 }
 
-func (r *PortfolioRepo) Get(userID int64) (domain.Portfolio, error) {
+func (r *PortfolioRepo) Get(ctx context.Context,userID int64) (domain.Portfolio, error) {
 	p, ok := r.portfolios[userID]
 	if !ok {
 		return domain.Portfolio{}, fmt.Errorf("%w: user %d", domain.ErrPortfolioNotFound, userID)
@@ -25,7 +26,7 @@ func (r *PortfolioRepo) Get(userID int64) (domain.Portfolio, error) {
 // needs one user's portfolio. This exists solely for the startup referential-integrity
 // check in api.NewServer, which needs to enumerate every portfolio before the app
 // starts serving requests.
-func (r *PortfolioRepo) All() (map[int64]domain.Portfolio, error) {
+func (r *PortfolioRepo) All(ctx context.Context) (map[int64]domain.Portfolio, error) {
 	return maps.Clone(r.portfolios), nil
 }
 
