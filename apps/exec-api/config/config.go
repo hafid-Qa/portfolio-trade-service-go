@@ -28,6 +28,8 @@ type Config struct {
 	// .env currently sets both to 8000.
 	ExternalPort int `env:"API_EXT_PORT,default=8000"`
 
+	DataSource string `env:"DATA_SOURCE,default=postgres"`
+
 	// DB config
 	DBHostName string `env:"DB_HOSTNAME,default=db"`
 	DBUserName string `env:"DB_USERNAME,default=postgres"`
@@ -36,6 +38,8 @@ type Config struct {
 	DBPort     int    `env:"DB_PORT,default=5432"`
 	DBUrl      string
 	TestDBUrl      string
+	DBDriver string `env:"DB_DRIVER,default=postgres"`
+	DBSslmode  string `env:"DB_SSLMODE,default=disable"`
 	
 }
 
@@ -61,11 +65,11 @@ func LoadConfig(ctx context.Context) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s",
-		cfg.DBUserName, cfg.DBPassword, cfg.DBHostName, cfg.DBPort, cfg.DBName)
-	testDBHostName:=	fmt.Sprintf("%s_test",cfg.DBHostName)
-	cfg.TestDBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s",
-		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName)
+	cfg.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.DBUserName, cfg.DBPassword, cfg.DBHostName, cfg.DBPort, cfg.DBName,cfg.DBSslmode)
+	testDBHostName := fmt.Sprintf("%s_test", cfg.DBHostName)
+	cfg.TestDBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName,cfg.DBSslmode)
 	return cfg, nil
 }
 

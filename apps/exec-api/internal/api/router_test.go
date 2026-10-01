@@ -44,6 +44,7 @@ func (f *fakeCalcClient) Calculate(ctx context.Context, in *calcv1.CalculateRequ
 func testServer(t *testing.T) *Server {
 	t.Helper()
 	cfg := &config.Config{
+		DataSource:    "memory",
 		StockPath:     "/data/stocks.yml",
 		PortfolioPath: "/data/portfolio.yml",
 	}
@@ -59,6 +60,7 @@ func testServer(t *testing.T) *Server {
 func testServerWithCalc(t *testing.T, calc *fakeCalcClient) *Server {
 	t.Helper()
 	cfg := &config.Config{
+		DataSource:    "memory",
 		StockPath:     "/data/stocks.yml",
 		PortfolioPath: "/data/portfolio.yml",
 	}
@@ -187,7 +189,7 @@ func TestNewServer_RejectsPortfolioReferencingUnknownTicker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &config.Config{StockPath: stocksPath, PortfolioPath: portfolioPath}
+	cfg := &config.Config{DataSource: "memory", StockPath: stocksPath, PortfolioPath: portfolioPath}
 	_, err := NewServer(cfg)
 	if err == nil {
 		t.Fatal("NewServer() error = nil, want an error for a portfolio referencing an unknown ticker")

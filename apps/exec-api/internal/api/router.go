@@ -1,109 +1,15 @@
 package api
 
 import (
-	"app/config"
 	"errors"
-	"fmt"
-	"maps"
 	"net/http"
-	"slices"
 
 	"app/internal/domain"
 
-	"app/internal/repositories/memory"
-
-	calcv1 "proto/gen"
-
 	"github.com/gin-gonic/gin"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-type Server struct {
-	config       *config.Config
-	router       *gin.Engine
-	tradeService *domain.TradeService
-}
 
-func NewServer(config *config.Config) (*Server, error) {
-	calcConn, err := grpc.NewClient(config.CalcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("dialing trade-calc at %q: %w", config.CalcAddr, err)
-	}
-	return newServer(config, calcv1.NewCalcServiceClient(calcConn))
-}
-
-// newServer takes the calc client as a parameter (rather than dialing it
-// itself) so tests can inject a fake instead of needing a live trade-calc.
-func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, error) {
-	stockRepo, sErr := memory.NewStockRepo(config.StockPath)
-
-	portfolioRepo, pErr := memory.NewPortfolioRepo(config.PortfolioPath)
-	if err := errors.Join(sErr, pErr); err != nil {
-		return nil, fmt.Errorf("failed to initialize repositories: %w", err)
-	}
-
-	if err := validateReferentialIntegrity(stockRepo, portfolioRepo); err != nil {
-		return nil, err
-	}
-
-	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, calc)
-
-	server := &Server{config: config, tradeService: tradeService}
-
-	server.SetUpRouter()
-	return server, nil
-}
-
-// validateReferentialIntegrity fails startup if any portfolio references a ticker
-// absent from the stock catalogue. Both YAML files load once and never change, so
-// this is a startup-time invariant, not something that should surface as a 500 on
-// a customer's request. The runtime UnknownStocksInPortfolio guard in TradeService
-// stays too: it's only safe to catch this at boot because the data is static today;
-// if portfolios ever move to a database, tickers could be delisted at runtime and
-// the request-time check becomes load-bearing again.
-func validateReferentialIntegrity(stockRepo *memory.StockRepo, portfolioRepo *memory.PortfolioRepo) error {
-	knownStocks, err := stockRepo.All()
-	if err != nil {
-		return fmt.Errorf("loading stocks for startup validation: %w", err)
-	}
-	portfolios, err := portfolioRepo.All()
-	if err != nil {
-		return fmt.Errorf("loading portfolios for startup validation: %w", err)
-	}
-
-	dangling := map[domain.Symbol]struct{}{}
-	for _, p := range portfolios {
-		for _, ticker := range p.Tickers() {
-			if _, ok := knownStocks[ticker]; !ok {
-				dangling[ticker] = struct{}{}
-			}
-		}
-	}
-	if len(dangling) > 0 {
-		tickers := slices.Sorted(maps.Keys(dangling))
-		return fmt.Errorf("portfolios reference unknown tickers: %v", tickers)
-	}
-	return nil
-}
-
-func (server *Server) Start(address string) error {
-	return server.router.Run(address)
-}
-
-func (server *Server) SetUpRouter() {
-	router := gin.Default()
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-	api := router.Group("/api")
-	api.GET("/health", server.healthHandler)
-	api.POST("/users/:user_id/trade", server.TradeHandler)
-
-	server.router = router
-}
 
 // @Summary Health Check
 // @Description Check the health of the API
