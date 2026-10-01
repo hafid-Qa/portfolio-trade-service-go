@@ -63,7 +63,7 @@ func LoadConfig(ctx context.Context) (*Config, error) {
 	}
 	cfg.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s",
 		cfg.DBUserName, cfg.DBPassword, cfg.DBHostName, cfg.DBPort, cfg.DBName)
-	testDBHostName:=	fmt.Sprintf("%s_test")
+	testDBHostName:=	fmt.Sprintf("%s_test",cfg.DBHostName)
 	cfg.TestDBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s",
 		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName)
 	return cfg, nil

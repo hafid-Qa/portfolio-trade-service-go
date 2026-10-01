@@ -44,8 +44,8 @@ func (f *fakeCalcClient) Calculate(ctx context.Context, in *calcv1.CalculateRequ
 func testServer(t *testing.T) *Server {
 	t.Helper()
 	cfg := &config.Config{
-		StockPath:     "../../data/stocks.yml",
-		PortfolioPath: "../../data/portfolio.yml",
+		StockPath:     "/data/stocks.yml",
+		PortfolioPath: "/data/portfolio.yml",
 	}
 	server, err := NewServer(cfg)
 	if err != nil {
@@ -59,8 +59,8 @@ func testServer(t *testing.T) *Server {
 func testServerWithCalc(t *testing.T, calc *fakeCalcClient) *Server {
 	t.Helper()
 	cfg := &config.Config{
-		StockPath:     "../../data/stocks.yml",
-		PortfolioPath: "../../data/portfolio.yml",
+		StockPath:     "/data/stocks.yml",
+		PortfolioPath: "/data/portfolio.yml",
 	}
 	server, err := newServer(cfg, calc)
 	if err != nil {
