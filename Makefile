@@ -1,4 +1,4 @@
-MIGRATIONS_PATH = internal/db/migrations
+MIGRATIONS_PATH = internal/sqlc/migrations
 DB_URL = postgresql://$$DB_USERNAME:$$DB_PASSWORD@$$DB_HOSTNAME:$$DB_PORT/$$DB_NAME?sslmode=$$DB_SSLMODE
 
 #  Generate Go code from proto/calc/v1/calc.proto into proto/gen/calc/v1/*.pb.go.
@@ -36,7 +36,7 @@ db_docs:
 db_schema:
 	dbml2sql --postgres -o doc/schema.sql doc/db.dbml
 
-# Regenerate Go code from internal/db/query/*.sql into internal/db/sqlc/ (see app/sqlc.yaml).
+# Regenerate Go code from internal/sqlc/query/*.sql into internal/sqlc/ (see app/sqlc.yaml).
 sqlc:
 	docker compose exec api sqlc generate
 # Run go vet and go test for both api and calc services. Uses compose.test.yml

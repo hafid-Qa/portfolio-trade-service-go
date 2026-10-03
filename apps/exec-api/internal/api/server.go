@@ -9,10 +9,10 @@ import (
 	"slices"
 
 	"app/config"
-	"app/internal/db/sqlc"
 	"app/internal/domain"
 	"app/internal/repositories/memory"
 	"app/internal/repositories/postgres"
+	"app/internal/sqlc"
 
 	calcv1 "proto/gen"
 

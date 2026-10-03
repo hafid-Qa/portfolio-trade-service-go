@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"app/internal/db/sqlc"
 	"app/internal/domain"
+	"app/internal/sqlc"
 )
 
 type PortfolioRepo struct {

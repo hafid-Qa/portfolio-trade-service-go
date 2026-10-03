@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"app/internal/db/sqlc"
 	"app/internal/domain"
+	"app/internal/sqlc"
 )
 
 type StockRepo struct {

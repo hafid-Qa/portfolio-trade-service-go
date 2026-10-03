@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"app/config"
-	"app/internal/db/sqlc"
+	"app/internal/sqlc"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -22,9 +22,9 @@ var (
 )
 
 // TestMain runs migrations against the test database itself (rather than
-// assuming `make migrateup-test` was run beforehand) and truncates afterward,
-// so every test run starts from a known-clean schema and no data -- including
-// the very first run against a fresh db_test container with no schema at all.
+// assuming they were applied beforehand) and truncates afterward, so every
+// test run starts from a known-clean schema and no data -- including the
+// very first run against a fresh db_test container with no schema at all.
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	cfg, err := config.LoadConfig(ctx)
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 }
 
 func runMigrations(dbURL string) {
-	m, err := migrate.New("file://../../db/migrations", dbURL)
+	m, err := migrate.New("file://../../sqlc/migrations", dbURL)
 	if err != nil {
 		log.Fatalf("cannot create migrate instance: %v", err)
 	}

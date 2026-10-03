@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"app/internal/db/sqlc"
 	"app/internal/domain"
+	"app/internal/sqlc"
 )
 
 func seedPortfolio(t *testing.T, userID int64, weights map[string]int) {

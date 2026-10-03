@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"app/internal/db/sqlc"
 	"app/internal/domain"
+	"app/internal/sqlc"
 )
 
 func seedStock(t *testing.T, ticker string, price int, tradable bool) {
