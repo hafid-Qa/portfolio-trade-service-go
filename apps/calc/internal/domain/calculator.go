@@ -5,10 +5,12 @@ import (
 	"slices"
 )
 
-func Calculate(portfolio map[string]int, stocks map[string]Stock, investmentAmount int, minOrderAmount int, quantityPrecision int) ([]Order, error) {
+func Calculate(targetPortfolio map[string]int, stocks map[string]Stock, investmentAmount int, minOrderAmount int, quantityPrecision int) ([]Order, error) {
 
 	eligibleSymbols := []string{}
-	targetPortfolio := portfolio
+	// Sorted because map iteration order is randomized by Go -- without this,
+	// the returned orders would come out in a different, non-reproducible
+	// sequence on every call for the same input.
 	sortedSymbol := slices.Sorted(maps.Keys(targetPortfolio))
 	for _, symbol := range sortedSymbol {
 		stock, ok := stocks[symbol]
