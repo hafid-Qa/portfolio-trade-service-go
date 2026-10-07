@@ -9,8 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-
 // @Summary Health Check
 // @Description Check the health of the API
 // @Tags Health
