@@ -9,9 +9,9 @@ import (
 	"log"
 )
 
-// @title Image Pipeline API
+// @title Portfolio Trade Service API
 // @version 1.0
-// @description API for image pipeline services
+// @description API for Trade Service
 // @BasePath /
 func main() {
 	ctx := context.Background()
