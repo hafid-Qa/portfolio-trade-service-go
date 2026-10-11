@@ -9,11 +9,12 @@ import (
 type TradeService struct {
 	stockRepo     StockRepository
 	PortfolioRepo PortfolioRepository
+	TradeRepo     TradeRepository
 	calc          calcv1.CalcServiceClient
 }
 
-func NewTradeService(s StockRepository, p PortfolioRepository, calc calcv1.CalcServiceClient) *TradeService {
-	return &TradeService{stockRepo: s, PortfolioRepo: p, calc: calc}
+func NewTradeService(s StockRepository, p PortfolioRepository, t TradeRepository, calc calcv1.CalcServiceClient) *TradeService {
+	return &TradeService{stockRepo: s, PortfolioRepo: p, TradeRepo: t, calc: calc}
 }
 
 func (s *TradeService) CreateTrade(ctx context.Context, userID int64, amount int) (TradeResult, error) {
@@ -46,8 +47,11 @@ func (s *TradeService) CreateTrade(ctx context.Context, userID int64, amount int
 	if err != nil {
 		return TradeResult{}, err
 	}
-
-	return NewTradeResult(amount, portfolio.TargetPortfolio(), toOrders(resp.Orders)), nil
+	newTrade, err := s.TradeRepo.Create(ctx, userID, amount, portfolio.TargetPortfolio(), toOrders(resp.Orders), TradeStatusPending)
+	if err != nil {
+		return TradeResult{}, err
+	}
+	return newTrade, nil
 }
 
 func toInt64Map(m map[Symbol]int) map[string]int64 {

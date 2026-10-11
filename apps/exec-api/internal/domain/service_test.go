@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	calcv1 "proto/gen"
 
@@ -49,6 +50,18 @@ func (f *fakePortfolioRepo) Get(ctx context.Context, userID int64) (Portfolio, e
 	return p, nil
 }
 
+type fakeTradeRepo struct {
+	err error
+}
+
+func (f *fakeTradeRepo) Create(ctx context.Context, userID int64, amount int, targetPortfolio map[Symbol]int, orders []Order, status TradeStatus) (TradeResult, error) {
+	if f.err != nil {
+		return TradeResult{}, f.err
+	}
+	now := time.Now()
+	return NewTradeResult(1, amount, targetPortfolio, orders, userID, status, now, now), nil
+}
+
 // fakeCalcClient stands in for a live trade-calc service -- it returns a
 // canned response instead of actually running the allocation algorithm
 // (which lives in a different module now and isn't available to import here).
@@ -73,7 +86,7 @@ func TestTradeService_CreateTrade_HappyPath(t *testing.T) {
 		{Symbol: "A", Amount: 4000, QuantityUnits: 4000},
 		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
 	}}}
-	svc := NewTradeService(stockRepo, portfolioRepo, calc)
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, calc)
 
 	result, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err != nil {
@@ -91,7 +104,7 @@ func TestTradeService_CreateTrade_HappyPath(t *testing.T) {
 func TestTradeService_CreateTrade_PortfolioNotFound(t *testing.T) {
 	stockRepo := &fakeStockRepo{stocks: map[Symbol]Stock{}}
 	portfolioRepo := &fakePortfolioRepo{portfolios: map[int64]Portfolio{}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeCalcClient{})
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{})
 
 	_, err := svc.CreateTrade(context.Background(), 999, 10000)
 	if !errors.Is(err, ErrPortfolioNotFound) {
@@ -112,7 +125,7 @@ func TestTradeService_CreateTrade_UnknownStocksInPortfolio(t *testing.T) {
 	portfolioRepo := &fakePortfolioRepo{portfolios: map[int64]Portfolio{
 		1: mustPortfolio(t, 1, map[Symbol]int{"A": 50, "Z": 50}),
 	}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeCalcClient{})
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{})
 
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	var unknown UnknownStocksInPortfolio
@@ -126,7 +139,7 @@ func TestTradeService_CreateTrade_StockRepoError(t *testing.T) {
 	portfolioRepo := &fakePortfolioRepo{portfolios: map[int64]Portfolio{
 		1: mustPortfolio(t, 1, map[Symbol]int{"A": 100}),
 	}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeCalcClient{})
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{})
 
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err == nil {
@@ -142,7 +155,7 @@ func TestTradeService_CreateTrade_CalcError(t *testing.T) {
 		1: mustPortfolio(t, 1, map[Symbol]int{"A": 100}),
 	}}
 	calc := &fakeCalcClient{err: errors.New("trade-calc unreachable")}
-	svc := NewTradeService(stockRepo, portfolioRepo, calc)
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, calc)
 
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err == nil {
