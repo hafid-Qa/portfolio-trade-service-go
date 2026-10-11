@@ -15,7 +15,18 @@ generate_swagger_docs() {
   (cd /app && GOFLAGS=-mod=mod go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g cmd/server/main.go -o ./docs --parseInternal)
 }
 
+run_migrations() {
+  echo "Running migrations"
+  migrate -path=internal/sqlc/migrations \
+    -database "postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOSTNAME}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}" \
+    -verbose up
+}
+
 generate_swagger_docs
+
+if [ "${DATA_SOURCE:-postgres}" != "memory" ]; then
+  run_migrations
+fi
 
 if [ "$#" -eq 0 ]; then
   if is_true "${PROD:-false}"; then
