@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -27,7 +26,11 @@ func (r *PortfolioRepo) Get(ctx context.Context, userID int64) (domain.Portfolio
 	if err != nil {
 		return domain.Portfolio{}, fmt.Errorf("getting portfolio for user %d: %w", userID, err)
 	}
-	return rowToPortfolio(row)
+	targetPortfolio, err := rawToTargetPortfolio(row.TargetPortfolio)
+	if err != nil {
+		return domain.Portfolio{}, fmt.Errorf("portfolio %d: %w", row.ID, err)
+	}
+	return domain.NewPortfolio(int64(row.UserID), targetPortfolio)
 }
 
 // All is deliberately not part of domain.PortfolioRepository: the domain only ever
@@ -42,30 +45,15 @@ func (r *PortfolioRepo) All(ctx context.Context) (map[int64]domain.Portfolio, er
 
 	portfolios := make(map[int64]domain.Portfolio, len(rows))
 	for _, row := range rows {
-		p, err := rowToPortfolio(row)
+		targetPortfolio, err := rawToTargetPortfolio(row.TargetPortfolio)
+		if err != nil {
+			return nil, fmt.Errorf("portfolio %d: %w", row.ID, err)
+		}
+		p, err := domain.NewPortfolio(int64(row.UserID), targetPortfolio)
 		if err != nil {
 			return nil, err
 		}
 		portfolios[p.UserId()] = p
 	}
 	return portfolios, nil
-}
-
-func rowToPortfolio(row sqlc.Portfolio) (domain.Portfolio, error) {
-	var weights map[string]int
-	if err := json.Unmarshal(row.TargetPortfolio, &weights); err != nil {
-		return domain.Portfolio{}, fmt.Errorf("portfolio %d: parsing target_portfolio: %w", row.ID, err)
-	}
-
-	targetPortfolio := make(map[domain.Symbol]int, len(weights))
-	for sym, ratio := range weights {
-		symbol, err := domain.NewSymbol(sym)
-		if err != nil {
-			return domain.Portfolio{}, fmt.Errorf("portfolio %d: %w", row.ID, err)
-		}
-		targetPortfolio[symbol] = ratio
-	}
-
-	return domain.NewPortfolio(int64(row.UserID), targetPortfolio)
-
 }
