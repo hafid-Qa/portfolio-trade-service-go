@@ -1,6 +1,19 @@
 MIGRATIONS_PATH = internal/sqlc/migrations
 DB_URL = postgresql://$$DB_USERNAME:$$DB_PASSWORD@$$DB_HOSTNAME:$$DB_PORT/$$DB_NAME?sslmode=$$DB_SSLMODE
 
+# List available targets with a one-line description. Assumes `docker compose up -d`
+# is already running for anything that talks to a container (migrate*, sqlc).
+help:
+	@echo "Available targets:"
+	@echo "  test                      go vet + go test for exec-api and calc (brings up db_test itself)"
+	@echo "  migrateup                 apply all pending migrations to db"
+	@echo "  migrateup1                apply just the next pending migration"
+	@echo "  migratedown               roll back all migrations on db"
+	@echo "  migratedown1              roll back the last applied migration only"
+	@echo "  new_migration name=add_x  scaffold a new .up.sql/.down.sql pair"
+	@echo "  sqlc                      regenerate Go code from internal/sqlc/query/*.sql"
+	@echo "  buf                       regenerate proto/gen from calc.proto"
+
 #  Generate Go code from proto/calc/v1/calc.proto into proto/gen/calc/v1/*.pb.go.
 buf:
 	protoc -I proto/calc/v1 \
@@ -45,4 +58,4 @@ test:
 	docker compose -f compose.yml -f compose.test.yml run --rm api sh -c "go vet ./... && go test ./..."
 	docker compose -f compose.yml -f compose.test.yml run --rm calc sh -c "go vet ./... && go test ./..."
 
-.PHONY: buf migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc test
+.PHONY: help buf migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc test
