@@ -1,20 +1,38 @@
 # Portfolio Trade Service — Go
 
 Given a trade amount, the service apportions it across the symbols in a customer's
-target portfolio by weight and returns the resulting per-symbol orders. It calculates
-orders only — nothing is executed or persisted.
+target portfolio by weight, computes the resulting per-symbol orders, and persists
+the trade. A Go implementation of [portfolio-trade-service](https://github.com/hafid-Qa/portfolio-trade-service)
+(the original Python version), grown past a straight port into its own two-service,
+gRPC-based architecture with Postgres persistence.
+
+## Architecture
+
+Two services, one shared gRPC contract:
+
+- **`calc`** — pure calculation, owns no data. Takes a trade amount, target portfolio
+  weights, and stock prices/tradability as request parameters, and returns the
+  apportioned orders. No database, no YAML, no business-rule constants baked in —
+  everything it needs comes from the caller.
+- **`exec-api`** — owns the stock catalogue, portfolios, and trade history. Calls
+  `calc` over gRPC to do the actual math, then persists the resulting trade.
+- **`proto/`** — the shared `calc.v1` gRPC contract, its own Go module. Both services
+  import the same generated client/server code, so there's no risk of two
+  independently-generated stubs drifting apart.
 
 ## Stack
 
 | Concern | Choice |
 | --- | --- |
-| HTTP | `gin-gonic/gin` v1.12 |
+| HTTP (`exec-api`) | `gin-gonic/gin` v1.12 |
+| RPC (`calc` ↔ `exec-api`) | `google.golang.org/grpc` + Protocol Buffers |
 | Request validation | `go-playground/validator` (via Gin binding tags) |
 | Config | `sethvargo/go-envconfig` — env vars into a typed struct |
-| YAML | `goccy/go-yaml` |
+| Persistence | PostgreSQL, via `sqlc`-generated queries + `lib/pq` |
+| Migrations | `golang-migrate`, run via its CLI (not a Go library dependency in prod code) |
+| YAML | `goccy/go-yaml` — `memory` backend fallback only (see below) |
 | API docs | `swaggo/swag` (generated), served via `swaggo/gin-swagger` |
 | Reload during development | `air`, running inside the dev container |
-| Storage | none — YAML loaded into memory at startup |
 
 ## Running it
 
@@ -22,37 +40,61 @@ orders only — nothing is executed or persisted.
 docker compose up
 ```
 
-There's no supported bare-metal workflow — `config.LoadConfig` requires `/data` to
-exist, which is only true inside the container (mounted from `./data`). The API serves
-on `http://localhost:${API_EXT_PORT}` (`8000` by default, see `.env`).
+The API serves on `http://localhost:${API_EXT_PORT}` (`8000` by default, see `.env`).
+`calc` isn't meant to be called directly by a client — `exec-api` is the only consumer.
 
 ```bash
-curl -s localhost:8000/api/users/1/trade \
+curl -s -X POST localhost:8000/api/users/1/trade \
   -H 'Content-Type: application/json' \
   -d '{"amount":10000}'
 ```
 
 ```json
 {
+  "id": 1,
   "amount": 10000,
   "target_portfolio": { "A": 40, "B": 60 },
   "orders": [
     { "symbol": "A", "amount": 4000, "quantity": 4 },
     { "symbol": "B", "amount": 6000, "quantity": 38.709 }
-  ]
+  ],
+  "status": "pending",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
 }
 ```
 
-Interactive docs at `http://localhost:8000/swagger/index.html`. They're regenerated
-automatically on every `air` rebuild (`.air.toml`'s `pre_cmd`), so they stay in sync
-with the handler annotations as you edit.
+Interactive docs at `http://localhost:8000/swagger/index.html`, regenerated
+automatically on every `air` rebuild.
+
+### Database setup
+
+Migrations run automatically on every `api` container start (`scripts/entrypoint.sh`
+runs `migrate ... up` before the app starts, skipped when `DATA_SOURCE=memory`) — no
+manual step needed there, and it's idempotent (reports `no change` if nothing's
+pending).
+
+Seeding is still manual, though: migrations only create schema, nothing inserts the
+reference data `calc`'s calculations are checked against. On first run (or after a
+full Docker reset), insert `stocks`/`portfolios` from `data/*.yml` yourself — see
+`data/stocks.yml`, `data/portfolio.yml` for the values; insert via `psql` or `sqlc`'s
+generated `CreateStock`/`CreatePortfolio`.
+
+### `memory` fallback
+
+`exec-api`'s stock/portfolio backend is chosen by `DATA_SOURCE` (`postgres` by
+default). Setting `DATA_SOURCE=memory` switches to the original YAML-backed
+in-memory repositories (`data/stocks.yml`, `data/portfolio.yml`) — useful for local
+dev without a live Postgres connection, kept as a reference/fallback rather than a
+second production path. Trade persistence in that mode uses an in-memory store too
+(data lost on restart, not written to Postgres).
 
 ## Business rules
 
-- Target portfolio, stock prices, and per-stock tradability are already configured
-  (`data/portfolio.yml`, `data/stocks.yml`).
 - All dollar calculations floor — integer division throughout, never float division on
-  the way to a dollar amount.
+  the way to a dollar amount. Quantities are stored as an integer count of
+  0.001-share units; the division into a decimal `quantity` happens only once, at the
+  API response boundary.
 - Minimum trade amount: $1,000.
 - The trade amount is apportioned across the target portfolio's weights: a $10,000
   trade against `A: 40%, B: 60%` produces `A: $4,000`, `B: $6,000`.
@@ -60,75 +102,99 @@ with the handler annotations as you edit.
   redistributed across the remaining eligible symbols.
 - Minimum order amount: $200. A symbol whose apportioned share falls below that is
   excluded and its weight redistributed the same way as a halted stock.
-- Orders are placed in units of 0.001 shares — the largest quantity satisfying
-  `quantity * price <= order_amount`. A symbol too expensive to buy even 0.001 of a
-  share at its apportioned amount is excluded and its weight redistributed, same as
-  the two rules above.
+- A symbol too expensive to buy even 0.001 of a share at its apportioned amount is
+  excluded and its weight redistributed, same as the two rules above.
 - Exclusion and redistribution run until the eligible set stabilizes — one round isn't
   always enough, since a symbol excluded on affordability can itself unlock room for
   a previously-marginal survivor.
 - Flooring can leave a small remainder unallocated (e.g. a $10,000 trade producing
   orders totaling $9,999) — this is expected, not a bug.
 - A portfolio referencing a ticker absent from the stock catalogue is a data-integrity
-  problem, not a client error — see the startup check described below.
+  problem, not a client error — caught at `exec-api` startup, not request time.
+- Every trade is persisted (`id`, `status`, `created_at`, `updated_at` returned in the
+  response) — nothing is executed against a real market; `status` starts at
+  `pending` and nothing currently advances it further (no async worker exists yet).
 
 ## Folder structure
 
 ```
-app/
-  cmd/
-    server/
-      main.go                entrypoint: load config, build the server, start it
-  config/
-    config.go                Config struct + LoadConfig(); DATA_DIR is fixed at
-                              /data (the container mount), not env-overridable
-  internal/
-    domain/
-      const.go                MinTradeAmount, MinOrderAmount, QuantityPrecision
-      errors.go                sentinel errors + PortfolioNotFound / UnknownStocksInPortfolio / TradeAmountBelowMinimum
-      stock.go                 Symbol (validated ticker type), Stock + NewStock
-      portfolio.go             Portfolio + NewPortfolio (sum-to-100 validation),
-                                sumTo100Percent
-      order.go                 Order — carries quantityUnits as an int; no float
-                                anywhere in the domain, only at the API boundary
-      trade_result.go          TradeResult — the domain-layer response of a trade
-      repository.go             StockRepository, PortfolioRepository (interfaces)
-      calculator.go             Calculate() — the allocation rules, pure, no I/O
-      service.go                TradeService.CreateTrade — orchestration
-    repositories/
-      memory/
-        stock.go                in-memory StockRepository, loaded from YAML
-        portfolio.go             in-memory PortfolioRepository, loaded from YAML
-    api/
-      router.go                 Gin engine, route registration, Server/NewServer,
-                                 startup referential-integrity check
-      trade.go                  TradeURI, TradeRequest, TradeResponse, OrderResponse
-      errors.go                 errorResponse helper
-  docs/                        generated by swag — gitignored, rebuilt on every start
-  go.mod / go.sum
+proto/                            shared gRPC contract, its own Go module
+  calc/v1/calc.proto               source contract
+  gen/                             generated calcv1 package (committed)
+apps/
+  calc/                            module calc — pure calculation, zero owned data
+    cmd/main.go                    gRPC server
+    config/config.go               GRPCPort (env CALC_GRPC_PORT)
+    internal/domain/
+      calculator.go                 Calculate() — the allocation rules, pure, no I/O
+      stock.go, order.go            plain value types, no repositories
+  exec-api/                        module app — owns data, orchestrates
+    cmd/server/main.go
+    config/config.go               ServerPort, CalcAddr, DataSource, DB_* config
+    internal/
+      domain/
+        const.go                    MinTradeAmount, MinOrderAmount, QuantityPrecision
+        errors.go                   sentinel errors + typed errors
+        stock.go, portfolio.go      Symbol, Stock, Portfolio (validating constructors)
+        order.go                    Order — int-only quantityUnits
+        trade_result.go             TradeResult — the persisted trade (id, status,
+                                     amount, target portfolio, orders, timestamps)
+        trade_status.go             TradeStatus enum
+        repository.go               StockRepository, PortfolioRepository,
+                                     TradeRepository (interfaces)
+        service.go                  TradeService.CreateTrade — orchestration:
+                                     resolve portfolio/stocks -> call calc -> persist
+      repositories/
+        memory/                     YAML-backed stock/portfolio repos, in-memory
+                                     trade store — DATA_SOURCE=memory fallback
+        postgres/                   sqlc-backed stock/portfolio/trade repos (default)
+      sqlc/                         sqlc config target: migrations/, query/, and the
+                                     generated Go code, all together
+      api/
+        router.go, server.go        Gin engine, Server/NewServer, startup
+                                     referential-integrity check
+        trade.go                    TradeURI, TradeRequest, TradeResponse, OrderResponse
+        errors.go                   errorResponse helper
+    docs/                          generated by swag — gitignored, rebuilt on every start
 data/
-  stocks.yml
-  portfolio.yml
-.air.toml
-compose.yml
-Dockerfile
-scripts/entrypoint.sh
+  stocks.yml, portfolio.yml        reference data (memory backend + Postgres seed source)
+compose.yml, compose.test.yml       dev stack + test-only db_test override
+Makefile                            migrate/sqlc/proto codegen, make test
+.github/workflows/ci.yml
 ```
 
 ## Testing
 
 ```bash
-docker compose run --rm api go test ./...
+make test
 ```
 
-(also works with the container already running, via `docker compose exec`). No
-bare-metal `go test` — same `/data` constraint as running the app.
+Runs `go vet`/`go test` for both `exec-api` and `calc` inside Docker. Self-sufficient —
+`compose.test.yml` brings up a health-checked `db_test` service, and the Postgres-backed
+repository tests' `TestMain` runs migrations against it itself before each run, so a
+completely fresh checkout needs no manual setup.
 
 Expected values in the calculator/service tests are hand-computed, not derived from
 the implementation — the point is catching a shared misunderstanding, which computing
 them from the same code under test wouldn't do.
 
-`order.go`/`errors.go`'s trivial accessors and `Error()` string methods don't have
-dedicated tests — they're exercised through everything above that constructs an
-`Order` or triggers a domain error, and have no decisions in them worth testing in
-isolation.
+CI (`.github/workflows/ci.yml`) runs `make test`, a `gofmt -l` check across both
+services, and a build check for the `proto` module.
+
+## Makefile commands
+
+Everything assumes `docker compose up -d` is already running.
+
+| Command | Does |
+| --- | --- |
+| `make test` | `go vet` + `go test` for `exec-api` and `calc`, brings up `db_test` itself |
+| `make migrateup` | Apply all pending migrations to `db` (also runs automatically on `api` startup) |
+| `make migrateup1` | Apply just the next pending migration |
+| `make migratedown` | Roll back all migrations on `db` |
+| `make migratedown1` | Roll back the last applied migration only |
+| `make new_migration name=add_x` | Scaffold a new `.up.sql`/`.down.sql` pair in `internal/sqlc/migrations/` |
+| `make sqlc` | Regenerate Go code from `internal/sqlc/query/*.sql` (see `sqlc.yaml`) |
+| `make buf` | Regenerate `proto/gen` from `proto/calc/v1/calc.proto` |
+
+`db_docs`/`db_schema` exist in the `Makefile` but aren't wired up yet (`doc/db.dbml`
+doesn't exist).
