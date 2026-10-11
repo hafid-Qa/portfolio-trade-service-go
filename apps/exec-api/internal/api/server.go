@@ -60,6 +60,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 	var store *sqlc.Store
 	var stockRepo domain.StockRepository
 	var portfolioRepo portfolioCatalog
+	var tradeRepo domain.TradeRepository
 
 	switch config.DataSource {
 	case "memory":
@@ -71,7 +72,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		if err := errors.Join(sErr, pErr); err != nil {
 			return nil, fmt.Errorf("failed to initialize repositories: %w", err)
 		}
-		stockRepo, portfolioRepo = memStockRepo, memPortfolioRepo
+		stockRepo, portfolioRepo, tradeRepo = memStockRepo, memPortfolioRepo, memory.NewTradeRepo()
 		if err := validateReferentialIntegrity(context.Background(), stockRepo, portfolioRepo); err != nil {
 			return nil, err
 		}
@@ -81,10 +82,10 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 			return nil, fmt.Errorf("connecting to db: %w", err)
 		}
 		store = sqlc.NewStore(conn)
-		stockRepo, portfolioRepo = postgres.NewStockRepo(*store), postgres.NewPortfolioRepo(*store)
+		stockRepo, portfolioRepo, tradeRepo = postgres.NewStockRepo(*store), postgres.NewPortfolioRepo(*store), postgres.NewTradeRepo(*store)
 	}
 
-	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, calc)
+	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc)
 
 	server := &Server{config: config, store: store, tradeService: tradeService}
 
