@@ -1,6 +1,10 @@
 package api
 
-import "app/internal/domain"
+import (
+	"time"
+
+	"app/internal/domain"
+)
 
 // TradeURI and TradeRequest are separate structs, not one, because Gin validates
 // the entire struct passed to each ShouldBind* call: a single struct carrying both
@@ -20,7 +24,11 @@ type OrderResponse struct {
 }
 
 type TradeResponse struct {
+	ID              int64                 `json:"id"`
 	Amount          int                   `json:"amount"`
 	TargetPortfolio map[domain.Symbol]int `json:"target_portfolio"`
 	Orders          []OrderResponse       `json:"orders"`
+	Status          string                `json:"status"`
+	CreatedAt       time.Time             `json:"created_at"`
+	UpdatedAt       time.Time             `json:"updated_at"`
 }

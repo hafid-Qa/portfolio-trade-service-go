@@ -70,8 +70,12 @@ func (server *Server) TradeHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, TradeResponse{
+		ID:              res.ID(),
 		Amount:          req.Amount,
 		TargetPortfolio: res.TargetPortfolio(),
 		Orders:          orders,
+		Status:          string(res.Status()),
+		CreatedAt:       res.CreatedAt(),
+		UpdatedAt:       res.UpdatedAt(),
 	})
 }
