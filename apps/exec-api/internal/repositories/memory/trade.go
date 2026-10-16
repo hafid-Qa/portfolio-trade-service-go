@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -30,4 +31,27 @@ func (r *TradeRepo) Create(ctx context.Context, userID int64, amount int, target
 	trade := domain.NewTradeResult(r.nextID, amount, targetPortfolio, orders, userID, status, now, now)
 	r.trades[r.nextID] = trade
 	return trade, nil
+}
+func (r *TradeRepo) Get(ctx context.Context, id int64) (domain.TradeResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	trade, ok := r.trades[id]
+	if !ok {
+		return domain.TradeResult{}, fmt.Errorf("%w: id %d", domain.ErrTradeNotFound, id)
+	}
+	return trade, nil
+}
+
+func (r *TradeRepo) GetByUserID(ctx context.Context, userID int64) ([]domain.TradeResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	trades := []domain.TradeResult{}
+	for _, trade := range r.trades {
+		if trade.UserID() == userID {
+			trades = append(trades, trade)
+		}
+	}
+	return trades, nil
 }

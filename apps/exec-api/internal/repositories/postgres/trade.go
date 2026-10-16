@@ -1,11 +1,14 @@
 package postgres
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+
 	"app/internal/domain"
 	"app/internal/sqlc"
-	"context"
-	"encoding/json"
-	"fmt"
 )
 
 type TradeRepo struct {
@@ -17,7 +20,6 @@ func NewTradeRepo(store sqlc.Store) *TradeRepo {
 }
 
 func (r *TradeRepo) Create(ctx context.Context, userID int64, amount int, targetPortfolio map[domain.Symbol]int, orders []domain.Order, status domain.TradeStatus) (domain.TradeResult, error) {
-
 	rawPortfolio, err := portfolioToRaw(targetPortfolio)
 	if err != nil {
 		return domain.TradeResult{}, fmt.Errorf("data error %s", err)
@@ -34,14 +36,45 @@ func (r *TradeRepo) Create(ctx context.Context, userID int64, amount int, target
 		Status:          string(status),
 	})
 	if err != nil {
-		return domain.TradeResult{}, fmt.Errorf("data error %s", err)
+		return domain.TradeResult{}, fmt.Errorf("creating trade: %w", err)
+	}
+	return rowToTradeResult(trade)
+}
+
+func (r *TradeRepo) Get(ctx context.Context, id int64) (domain.TradeResult, error) {
+	trade, err := r.store.GetTradeByID(ctx, int32(id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.TradeResult{}, fmt.Errorf("%w: id %d", domain.ErrTradeNotFound, id)
+	}
+	if err != nil {
+		return domain.TradeResult{}, fmt.Errorf("getting trade %d: %w", id, err)
+	}
+	return rowToTradeResult(trade)
+}
+
+func (r *TradeRepo) GetByUserID(ctx context.Context, userID int64) ([]domain.TradeResult, error) {
+	rows, err := r.store.GetTradesByUserID(ctx, int32(userID))
+	if err != nil {
+		return nil, fmt.Errorf("listing trades for user %d: %w", userID, err)
 	}
 
-	tradeTargetPortfolio, err := rawToTargetPortfolio(trade.TargetPortfolio)
+	trades := make([]domain.TradeResult, len(rows))
+	for i, row := range rows {
+		trade, err := rowToTradeResult(row)
+		if err != nil {
+			return nil, err
+		}
+		trades[i] = trade
+	}
+	return trades, nil
+}
+
+func rowToTradeResult(trade sqlc.Trade) (domain.TradeResult, error) {
+	targetPortfolio, err := rawToTargetPortfolio(trade.TargetPortfolio)
 	if err != nil {
 		return domain.TradeResult{}, fmt.Errorf("trade %d: %w", trade.ID, err)
 	}
-	tradeOrders, err := rawToOrders(trade.Orders)
+	orders, err := rawToOrders(trade.Orders)
 	if err != nil {
 		return domain.TradeResult{}, fmt.Errorf("trade %d: %w", trade.ID, err)
 	}
@@ -49,8 +82,8 @@ func (r *TradeRepo) Create(ctx context.Context, userID int64, amount int, target
 	return domain.NewTradeResult(
 		int64(trade.ID),
 		int(trade.Amount),
-		tradeTargetPortfolio,
-		tradeOrders,
+		targetPortfolio,
+		orders,
 		int64(trade.UserID),
 		domain.TradeStatus(trade.Status),
 		trade.CreatedAt,
