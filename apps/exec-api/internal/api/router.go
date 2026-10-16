@@ -87,6 +87,9 @@ func (server *Server) TradeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, toTradeResponse(res))
 }
 
+// @Tags Users
+// @Accept json
+// @Produce json
 // @Router /api/users/:user_id/trade/:id [get]
 func (server *Server) GetTradeHanlder(c *gin.Context) {
 	var uri GetTradeRequest
@@ -107,6 +110,9 @@ func (server *Server) GetTradeHanlder(c *gin.Context) {
 	c.JSON(http.StatusOK, toTradeResponse(res))
 }
 
+// @Tags Users
+// @Accept json
+// @Produce json
 // @Router /api/users/{user_id}/trades} [get]
 func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
 	var uri TradeRequestByUser
