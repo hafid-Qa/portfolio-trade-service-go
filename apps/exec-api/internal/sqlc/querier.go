@@ -16,8 +16,11 @@ type Querier interface {
 	DeleteStock(ctx context.Context, ticker string) error
 	GetPortfolioByUserID(ctx context.Context, userID int32) (Portfolio, error)
 	GetStocksByTickers(ctx context.Context, dollar_1 []string) ([]Stock, error)
+	GetTradeByID(ctx context.Context, id int32) (Trade, error)
+	GetTradesByUserID(ctx context.Context, userID int32) ([]Trade, error)
 	ListPortfolios(ctx context.Context) ([]Portfolio, error)
 	ListStocks(ctx context.Context) ([]Stock, error)
+	UpdateTradeStatus(ctx context.Context, arg UpdateTradeStatusParams) (Trade, error)
 }
 
 var _ Querier = (*Queries)(nil)

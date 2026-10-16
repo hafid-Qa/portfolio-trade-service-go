@@ -45,3 +45,84 @@ func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade
 	)
 	return i, err
 }
+
+const getTradeByID = `-- name: GetTradeByID :one
+SELECT id, user_id, amount, target_portfolio, orders, status, created_at, updated_at FROM trades WHERE id = $1
+`
+
+func (q *Queries) GetTradeByID(ctx context.Context, id int32) (Trade, error) {
+	row := q.db.QueryRowContext(ctx, getTradeByID, id)
+	var i Trade
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Amount,
+		&i.TargetPortfolio,
+		&i.Orders,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTradesByUserID = `-- name: GetTradesByUserID :many
+SELECT id, user_id, amount, target_portfolio, orders, status, created_at, updated_at FROM trades WHERE user_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) GetTradesByUserID(ctx context.Context, userID int32) ([]Trade, error) {
+	rows, err := q.db.QueryContext(ctx, getTradesByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Trade{}
+	for rows.Next() {
+		var i Trade
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Amount,
+			&i.TargetPortfolio,
+			&i.Orders,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateTradeStatus = `-- name: UpdateTradeStatus :one
+UPDATE trades SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING id, user_id, amount, target_portfolio, orders, status, created_at, updated_at
+`
+
+type UpdateTradeStatusParams struct {
+	ID     int32  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateTradeStatus(ctx context.Context, arg UpdateTradeStatusParams) (Trade, error) {
+	row := q.db.QueryRowContext(ctx, updateTradeStatus, arg.ID, arg.Status)
+	var i Trade
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Amount,
+		&i.TargetPortfolio,
+		&i.Orders,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
