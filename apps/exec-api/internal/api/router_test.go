@@ -95,7 +95,7 @@ func TestTradeHandler_HappyPath(t *testing.T) {
 		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
 	}}}
 	server := testServerWithCalc(t, calc)
-	w := doRequest(server, http.MethodPost, "/api/users/1/trade", `{"amount": 10000}`)
+	w := doRequest(server, http.MethodPost, "/api/users/1/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
@@ -124,7 +124,7 @@ func TestTradeHandler_HappyPath(t *testing.T) {
 
 func TestTradeHandler_UnknownUser(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodPost, "/api/users/999/trade", `{"amount": 10000}`)
+	w := doRequest(server, http.MethodPost, "/api/users/999/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404, body = %s", w.Code, w.Body.String())
 	}
@@ -132,7 +132,7 @@ func TestTradeHandler_UnknownUser(t *testing.T) {
 
 func TestTradeHandler_AmountBelowMinimum(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodPost, "/api/users/1/trade", `{"amount": 500}`)
+	w := doRequest(server, http.MethodPost, "/api/users/1/trades", `{"amount": 500}`)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400, body = %s", w.Code, w.Body.String())
 	}
@@ -140,7 +140,7 @@ func TestTradeHandler_AmountBelowMinimum(t *testing.T) {
 
 func TestTradeHandler_InvalidUserID(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodPost, "/api/users/0/trade", `{"amount": 10000}`)
+	w := doRequest(server, http.MethodPost, "/api/users/0/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400, body = %s", w.Code, w.Body.String())
 	}
@@ -151,7 +151,7 @@ func TestTradeHandler_InvalidUserID(t *testing.T) {
 func TestTradeHandler_HaltedOnlyPortfolio(t *testing.T) {
 	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{}}}
 	server := testServerWithCalc(t, calc)
-	w := doRequest(server, http.MethodPost, "/api/users/2/trade", `{"amount": 10000}`)
+	w := doRequest(server, http.MethodPost, "/api/users/2/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}

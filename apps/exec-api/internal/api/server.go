@@ -135,7 +135,9 @@ func (server *Server) SetUpRouter() {
 
 	api := router.Group("/api")
 	api.GET("/health", server.healthHandler)
-	api.POST("/users/:user_id/trade", server.TradeHandler)
+	api.POST("/users/:user_id/trades", server.TradeHandler)
+	api.GET("/users/:user_id/trades/:id", server.GetTradeHanlder)
+	api.GET("/users/:user_id/trades", server.GetTradeByUserHanlder)
 
 	server.router = router
 }
