@@ -13,4 +13,6 @@ type PortfolioRepository interface {
 
 type TradeRepository interface {
 	Create(ctx context.Context, userID int64, amount int, targetPortfolio map[Symbol]int, orders []Order, status TradeStatus) (TradeResult, error)
+	Get(ctx context.Context, id int64) (TradeResult, error)
+	GetByUserID(ctx context.Context, userID int64) ([]TradeResult, error)
 }

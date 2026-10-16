@@ -54,6 +54,25 @@ func (s *TradeService) CreateTrade(ctx context.Context, userID int64, amount int
 	return newTrade, nil
 }
 
+func (s *TradeService) GetTrade(ctx context.Context, userID, id int64) (TradeResult, error) {
+	trade, err := s.TradeRepo.Get(ctx, id)
+	if err != nil {
+		return TradeResult{}, err
+	}
+	if trade.UserID() != userID {
+		return TradeResult{}, ErrTradeNotFound
+	}
+	return trade, nil
+}
+func (s *TradeService) GetTradesByUserID(ctx context.Context, userID int64) ([]TradeResult, error) {
+	trades, err := s.TradeRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return []TradeResult{}, err
+	}
+
+	return trades, nil
+}
+
 func toInt64Map(m map[Symbol]int) map[string]int64 {
 	result := make(map[string]int64, len(m))
 	for symbol, weight := range m {

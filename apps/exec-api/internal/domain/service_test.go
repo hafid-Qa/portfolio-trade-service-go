@@ -62,6 +62,14 @@ func (f *fakeTradeRepo) Create(ctx context.Context, userID int64, amount int, ta
 	return NewTradeResult(1, amount, targetPortfolio, orders, userID, status, now, now), nil
 }
 
+func (f *fakeTradeRepo) Get(ctx context.Context, id int64) (TradeResult, error) {
+	return TradeResult{}, f.err
+}
+
+func (f *fakeTradeRepo) GetByUserID(ctx context.Context, userID int64) ([]TradeResult, error) {
+	return nil, f.err
+}
+
 // fakeCalcClient stands in for a live trade-calc service -- it returns a
 // canned response instead of actually running the allocation algorithm
 // (which lives in a different module now and isn't available to import here).
