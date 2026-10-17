@@ -40,6 +40,13 @@ type Config struct {
 	TestDBUrl  string
 	DBDriver   string `env:"DB_DRIVER,default=postgres"`
 	DBSslmode  string `env:"DB_SSLMODE,default=disable"`
+
+	// Broker config
+	BrokerPort     int    `env:"BROKER_PORT,default=6379"`
+	BrokerHost     string `env:"BROKER_HOST,default=broker"`
+	BrokerUser     string `env:"BROKER_USER,required"`
+	BrokerPassword string `env:"BROKER_PASSWORD,required"`
+	BrokerAddr     string
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
@@ -69,6 +76,7 @@ func LoadConfig(ctx context.Context) (*Config, error) {
 	testDBHostName := fmt.Sprintf("%s_test", cfg.DBHostName)
 	cfg.TestDBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName, cfg.DBSslmode)
+	cfg.BrokerAddr = fmt.Sprintf("redis://%s:%s@%s:%d", cfg.BrokerUser, cfg.BrokerPassword, cfg.BrokerHost, cfg.BrokerPort)
 	return cfg, nil
 }
 
