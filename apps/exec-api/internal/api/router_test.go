@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -162,6 +163,109 @@ func TestTradeHandler_HaltedOnlyPortfolio(t *testing.T) {
 	}
 	if len(resp.Orders) != 0 {
 		t.Errorf("len(Orders) = %d, want 0", len(resp.Orders))
+	}
+}
+
+// createTestTrade POSTs a real trade through the server (user 1, A:40 B:60)
+// and returns its decoded response, so GET tests have a real persisted
+// trade -- with a real assigned ID -- to look up instead of a hand-rolled
+// fixture that could drift from what CreateTrade actually produces.
+func createTestTrade(t *testing.T, server *Server) TradeResponse {
+	t.Helper()
+	w := doRequest(server, http.MethodPost, "/api/users/1/trades", `{"amount": 10000}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("seeding trade: status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var resp TradeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal seeded trade: %v", err)
+	}
+	return resp
+}
+
+func TestGetTradeHandler_HappyPath(t *testing.T) {
+	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{
+		{Symbol: "A", Amount: 4000, QuantityUnits: 4000},
+		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
+	}}}
+	server := testServerWithCalc(t, calc)
+	created := createTestTrade(t, server)
+
+	w := doRequest(server, http.MethodGet, fmt.Sprintf("/api/users/1/trades/%d", created.ID), "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
+	}
+
+	var resp TradeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if resp.ID != created.ID {
+		t.Errorf("ID = %d, want %d", resp.ID, created.ID)
+	}
+}
+
+func TestGetTradeHandler_NotFound(t *testing.T) {
+	server := testServer(t)
+	w := doRequest(server, http.MethodGet, "/api/users/1/trades/999999", "")
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", w.Code, w.Body.String())
+	}
+}
+
+// TestGetTradeHandler_WrongUser covers the ownership guard at the HTTP
+// level: a trade that exists but belongs to a different user must come
+// back as 404, not 403 -- otherwise a client could tell "doesn't exist"
+// apart from "exists but isn't yours" just from the status code.
+func TestGetTradeHandler_WrongUser(t *testing.T) {
+	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{
+		{Symbol: "A", Amount: 4000, QuantityUnits: 4000},
+		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
+	}}}
+	server := testServerWithCalc(t, calc)
+	created := createTestTrade(t, server) // owned by user 1
+
+	w := doRequest(server, http.MethodGet, fmt.Sprintf("/api/users/2/trades/%d", created.ID), "")
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGetTradeByUserHandler_HappyPath(t *testing.T) {
+	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{
+		{Symbol: "A", Amount: 4000, QuantityUnits: 4000},
+		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
+	}}}
+	server := testServerWithCalc(t, calc)
+	createTestTrade(t, server)
+
+	w := doRequest(server, http.MethodGet, "/api/users/1/trades", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
+	}
+
+	var resp []TradeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(resp) != 1 {
+		t.Fatalf("len(resp) = %d, want 1", len(resp))
+	}
+}
+
+func TestGetTradeByUserHandler_Empty(t *testing.T) {
+	server := testServer(t)
+	w := doRequest(server, http.MethodGet, "/api/users/999/trades", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
+	}
+
+	var resp []TradeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(resp) != 0 {
+		t.Errorf("len(resp) = %d, want 0", len(resp))
 	}
 }
 

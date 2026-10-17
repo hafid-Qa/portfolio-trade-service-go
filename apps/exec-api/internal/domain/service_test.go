@@ -51,7 +51,8 @@ func (f *fakePortfolioRepo) Get(ctx context.Context, userID int64) (Portfolio, e
 }
 
 type fakeTradeRepo struct {
-	err error
+	trades map[int64]TradeResult
+	err    error
 }
 
 func (f *fakeTradeRepo) Create(ctx context.Context, userID int64, amount int, targetPortfolio map[Symbol]int, orders []Order, status TradeStatus) (TradeResult, error) {
@@ -63,11 +64,27 @@ func (f *fakeTradeRepo) Create(ctx context.Context, userID int64, amount int, ta
 }
 
 func (f *fakeTradeRepo) Get(ctx context.Context, id int64) (TradeResult, error) {
-	return TradeResult{}, f.err
+	if f.err != nil {
+		return TradeResult{}, f.err
+	}
+	trade, ok := f.trades[id]
+	if !ok {
+		return TradeResult{}, fmt.Errorf("%w: id %d", ErrTradeNotFound, id)
+	}
+	return trade, nil
 }
 
 func (f *fakeTradeRepo) GetByUserID(ctx context.Context, userID int64) ([]TradeResult, error) {
-	return nil, f.err
+	if f.err != nil {
+		return nil, f.err
+	}
+	var result []TradeResult
+	for _, trade := range f.trades {
+		if trade.UserID() == userID {
+			result = append(result, trade)
+		}
+	}
+	return result, nil
 }
 
 // fakeCalcClient stands in for a live trade-calc service -- it returns a
@@ -168,5 +185,84 @@ func TestTradeService_CreateTrade_CalcError(t *testing.T) {
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err == nil {
 		t.Fatal("CreateTrade() error = nil, want trade-calc's error to propagate")
+	}
+}
+
+func TestTradeService_GetTrade_HappyPath(t *testing.T) {
+	now := time.Now()
+	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{
+		1: NewTradeResult(1, 10000, map[Symbol]int{"A": 100}, nil, 1, TradeStatusPending, now, now),
+	}}
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+
+	result, err := svc.GetTrade(context.Background(), 1, 1)
+	if err != nil {
+		t.Fatalf("GetTrade() error = %v", err)
+	}
+	if result.ID() != 1 || result.UserID() != 1 {
+		t.Errorf("GetTrade() = %+v, want ID=1 UserID=1", result)
+	}
+}
+
+func TestTradeService_GetTrade_NotFound(t *testing.T) {
+	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{}}
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+
+	_, err := svc.GetTrade(context.Background(), 1, 999)
+	if !errors.Is(err, ErrTradeNotFound) {
+		t.Errorf("GetTrade() error = %v, want ErrTradeNotFound", err)
+	}
+}
+
+// TestTradeService_GetTrade_WrongUser covers the ownership guard: a trade
+// that exists but belongs to a different user must come back as "not
+// found," not "forbidden" -- so a caller probing other IDs can't tell the
+// difference between "doesn't exist" and "exists but isn't yours."
+func TestTradeService_GetTrade_WrongUser(t *testing.T) {
+	now := time.Now()
+	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{
+		1: NewTradeResult(1, 10000, map[Symbol]int{"A": 100}, nil, 2, TradeStatusPending, now, now),
+	}}
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+
+	_, err := svc.GetTrade(context.Background(), 1, 1)
+	if !errors.Is(err, ErrTradeNotFound) {
+		t.Errorf("GetTrade() error = %v, want ErrTradeNotFound", err)
+	}
+}
+
+func TestTradeService_GetTradesByUserID_HappyPath(t *testing.T) {
+	now := time.Now()
+	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{
+		1: NewTradeResult(1, 10000, map[Symbol]int{"A": 100}, nil, 1, TradeStatusPending, now, now),
+		2: NewTradeResult(2, 5000, map[Symbol]int{"B": 100}, nil, 1, TradeStatusCompleted, now, now),
+		3: NewTradeResult(3, 1000, map[Symbol]int{"A": 100}, nil, 2, TradeStatusPending, now, now),
+	}}
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+
+	result, err := svc.GetTradesByUserID(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("GetTradesByUserID() error = %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("GetTradesByUserID(1) returned %d trades, want 2", len(result))
+	}
+	for _, trade := range result {
+		if trade.UserID() != 1 {
+			t.Errorf("GetTradesByUserID(1) returned a trade for user %d", trade.UserID())
+		}
+	}
+}
+
+func TestTradeService_GetTradesByUserID_Empty(t *testing.T) {
+	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{}}
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+
+	result, err := svc.GetTradesByUserID(context.Background(), 999)
+	if err != nil {
+		t.Fatalf("GetTradesByUserID() error = %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("GetTradesByUserID() returned %d trades, want 0", len(result))
 	}
 }
