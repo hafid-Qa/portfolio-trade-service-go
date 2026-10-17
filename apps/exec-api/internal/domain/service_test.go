@@ -50,6 +50,14 @@ func (f *fakePortfolioRepo) Get(ctx context.Context, userID int64) (Portfolio, e
 	return p, nil
 }
 
+type fakeTradeProducer struct {
+	err error
+}
+
+func (f *fakeTradeProducer) Enqueue(ctx context.Context, tradeID int64) error {
+	return f.err
+}
+
 type fakeTradeRepo struct {
 	trades map[int64]TradeResult
 	err    error
@@ -111,7 +119,7 @@ func TestTradeService_CreateTrade_HappyPath(t *testing.T) {
 		{Symbol: "A", Amount: 4000, QuantityUnits: 4000},
 		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
 	}}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, calc)
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, calc, &fakeTradeProducer{})
 
 	result, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err != nil {
@@ -129,7 +137,7 @@ func TestTradeService_CreateTrade_HappyPath(t *testing.T) {
 func TestTradeService_CreateTrade_PortfolioNotFound(t *testing.T) {
 	stockRepo := &fakeStockRepo{stocks: map[Symbol]Stock{}}
 	portfolioRepo := &fakePortfolioRepo{portfolios: map[int64]Portfolio{}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{})
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	_, err := svc.CreateTrade(context.Background(), 999, 10000)
 	if !errors.Is(err, ErrPortfolioNotFound) {
@@ -150,7 +158,7 @@ func TestTradeService_CreateTrade_UnknownStocksInPortfolio(t *testing.T) {
 	portfolioRepo := &fakePortfolioRepo{portfolios: map[int64]Portfolio{
 		1: mustPortfolio(t, 1, map[Symbol]int{"A": 50, "Z": 50}),
 	}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{})
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	var unknown UnknownStocksInPortfolio
@@ -164,7 +172,7 @@ func TestTradeService_CreateTrade_StockRepoError(t *testing.T) {
 	portfolioRepo := &fakePortfolioRepo{portfolios: map[int64]Portfolio{
 		1: mustPortfolio(t, 1, map[Symbol]int{"A": 100}),
 	}}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{})
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err == nil {
@@ -180,7 +188,7 @@ func TestTradeService_CreateTrade_CalcError(t *testing.T) {
 		1: mustPortfolio(t, 1, map[Symbol]int{"A": 100}),
 	}}
 	calc := &fakeCalcClient{err: errors.New("trade-calc unreachable")}
-	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, calc)
+	svc := NewTradeService(stockRepo, portfolioRepo, &fakeTradeRepo{}, calc, &fakeTradeProducer{})
 
 	_, err := svc.CreateTrade(context.Background(), 1, 10000)
 	if err == nil {
@@ -193,7 +201,7 @@ func TestTradeService_GetTrade_HappyPath(t *testing.T) {
 	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{
 		1: NewTradeResult(1, 10000, map[Symbol]int{"A": 100}, nil, 1, TradeStatusPending, now, now),
 	}}
-	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	result, err := svc.GetTrade(context.Background(), 1, 1)
 	if err != nil {
@@ -206,7 +214,7 @@ func TestTradeService_GetTrade_HappyPath(t *testing.T) {
 
 func TestTradeService_GetTrade_NotFound(t *testing.T) {
 	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{}}
-	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	_, err := svc.GetTrade(context.Background(), 1, 999)
 	if !errors.Is(err, ErrTradeNotFound) {
@@ -223,7 +231,7 @@ func TestTradeService_GetTrade_WrongUser(t *testing.T) {
 	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{
 		1: NewTradeResult(1, 10000, map[Symbol]int{"A": 100}, nil, 2, TradeStatusPending, now, now),
 	}}
-	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	_, err := svc.GetTrade(context.Background(), 1, 1)
 	if !errors.Is(err, ErrTradeNotFound) {
@@ -238,7 +246,7 @@ func TestTradeService_GetTradesByUserID_HappyPath(t *testing.T) {
 		2: NewTradeResult(2, 5000, map[Symbol]int{"B": 100}, nil, 1, TradeStatusCompleted, now, now),
 		3: NewTradeResult(3, 1000, map[Symbol]int{"A": 100}, nil, 2, TradeStatusPending, now, now),
 	}}
-	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	result, err := svc.GetTradesByUserID(context.Background(), 1)
 	if err != nil {
@@ -256,7 +264,7 @@ func TestTradeService_GetTradesByUserID_HappyPath(t *testing.T) {
 
 func TestTradeService_GetTradesByUserID_Empty(t *testing.T) {
 	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{}}
-	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{})
+	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
 	result, err := svc.GetTradesByUserID(context.Background(), 999)
 	if err != nil {

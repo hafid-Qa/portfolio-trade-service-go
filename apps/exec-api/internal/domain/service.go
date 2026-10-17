@@ -11,10 +11,11 @@ type TradeService struct {
 	PortfolioRepo PortfolioRepository
 	TradeRepo     TradeRepository
 	calc          calcv1.CalcServiceClient
+	TradeProducer TradeProducer
 }
 
-func NewTradeService(s StockRepository, p PortfolioRepository, t TradeRepository, calc calcv1.CalcServiceClient) *TradeService {
-	return &TradeService{stockRepo: s, PortfolioRepo: p, TradeRepo: t, calc: calc}
+func NewTradeService(s StockRepository, p PortfolioRepository, t TradeRepository, calc calcv1.CalcServiceClient, tP TradeProducer) *TradeService {
+	return &TradeService{stockRepo: s, PortfolioRepo: p, TradeRepo: t, calc: calc, TradeProducer: tP}
 }
 
 func (s *TradeService) CreateTrade(ctx context.Context, userID int64, amount int) (TradeResult, error) {
@@ -49,6 +50,13 @@ func (s *TradeService) CreateTrade(ctx context.Context, userID int64, amount int
 	}
 	newTrade, err := s.TradeRepo.Create(ctx, userID, amount, portfolio.TargetPortfolio(), toOrders(resp.Orders), TradeStatusPending)
 	if err != nil {
+		return TradeResult{}, err
+	}
+
+	// Enqueue only after the trade is durably persisted -- a job enqueued
+	// before the row exists could have the worker pick it up and query for
+	// a trade that isn't there yet.
+	if err := s.TradeProducer.Enqueue(ctx, newTrade.ID()); err != nil {
 		return TradeResult{}, err
 	}
 	return newTrade, nil
