@@ -10,6 +10,7 @@ import (
 
 	"app/config"
 	"app/internal/domain"
+	"app/internal/queue"
 	"app/internal/repositories/memory"
 	"app/internal/repositories/postgres"
 	"app/internal/sqlc"
@@ -17,6 +18,7 @@ import (
 	calcv1 "proto/gen"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -25,9 +27,9 @@ import (
 )
 
 type Server struct {
-	config       *config.Config
-	router       *gin.Engine
-	store        *sqlc.Store
+	config *config.Config
+	router *gin.Engine
+
 	tradeService *domain.TradeService
 }
 
@@ -61,6 +63,10 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 	var stockRepo domain.StockRepository
 	var portfolioRepo portfolioCatalog
 	var tradeRepo domain.TradeRepository
+	var tradeProducer domain.TradeProducer
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: config.BrokerAddr})
+	tradeProducer = queue.NewTradeProducer(asynqClient)
+	defer asynqClient.Close()
 
 	switch config.DataSource {
 	case "memory":
@@ -83,11 +89,12 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		}
 		store = sqlc.NewStore(conn)
 		stockRepo, portfolioRepo, tradeRepo = postgres.NewStockRepo(*store), postgres.NewPortfolioRepo(*store), postgres.NewTradeRepo(*store)
+
 	}
 
-	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc)
+	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc, tradeProducer)
 
-	server := &Server{config: config, store: store, tradeService: tradeService}
+	server := &Server{config: config, tradeService: tradeService}
 
 	server.SetUpRouter()
 	return server, nil
