@@ -14,6 +14,7 @@ type Querier interface {
 	CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade, error)
 	DeletePortfolio(ctx context.Context, userID int32) error
 	DeleteStock(ctx context.Context, ticker string) error
+	DeleteTrade(ctx context.Context, id int32) error
 	GetPortfolioByUserID(ctx context.Context, userID int32) (Portfolio, error)
 	GetStocksByTickers(ctx context.Context, dollar_1 []string) ([]Stock, error)
 	GetTradeByID(ctx context.Context, id int32) (Trade, error)

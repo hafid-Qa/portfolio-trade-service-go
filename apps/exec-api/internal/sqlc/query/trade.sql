@@ -8,4 +8,6 @@ SELECT * FROM trades WHERE id = $1;
 SELECT * FROM trades WHERE user_id = $1 ORDER BY created_at DESC;
 -- name: UpdateTradeStatus :one
 UPDATE trades SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *;
+-- name: DeleteTrade :exec
+DELETE FROM trades WHERE id = $1;
 

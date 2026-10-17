@@ -46,6 +46,15 @@ func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade
 	return i, err
 }
 
+const deleteTrade = `-- name: DeleteTrade :exec
+DELETE FROM trades WHERE id = $1
+`
+
+func (q *Queries) DeleteTrade(ctx context.Context, id int32) error {
+	_, err := q.db.ExecContext(ctx, deleteTrade, id)
+	return err
+}
+
 const getTradeByID = `-- name: GetTradeByID :one
 SELECT id, user_id, amount, target_portfolio, orders, status, created_at, updated_at FROM trades WHERE id = $1
 `
