@@ -1,10 +1,12 @@
 name: portfolio-trade-service
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: apps/exec-api/Dockerfile
+  image: backend:latest
 services:
   api:
-    build:
-      context: .
-      dockerfile: apps/exec-api/Dockerfile
-    image: api:latest
+    <<: *backend
     container_name: api
     volumes:
       - ./apps/exec-api:/app:rw
@@ -22,6 +24,14 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+      broker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 100
+      start_period: 60s
   calc:
     build:
       context: .
@@ -61,6 +71,33 @@ services:
       timeout: 5s
       retries: 100
       start_period: 10s
+
+  broker:
+    container_name: ${BROKER_HOST? Variable not set}
+    image: redis/redis-stack-server:latest
+    restart: always
+    environment:
+      - REDIS_ARGS="--requirepass ${BROKER_PASSWORD? Variable not set}"
+    volumes:
+      - ${REDIS_VOLUME? Variable not set}:/data:rw
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 100
+      start_period: 5s
+
+  consumer:
+    <<: *backend
+    container_name: consumer
+    depends_on:
+      broker:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    command: ["go", "run", "./cmd/worker"]
 
 networks:
   default:
