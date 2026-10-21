@@ -69,6 +69,22 @@ func (r *TradeRepo) GetByUserID(ctx context.Context, userID int64) ([]domain.Tra
 	return trades, nil
 }
 
+func (r *TradeRepo) UpdateStatus(ctx context.Context, tradeId int64, status domain.TradeStatus) (domain.TradeResult, error) {
+	if !status.Valid() {
+		return domain.TradeResult{}, fmt.Errorf("invalid trade status %q", status)
+	}
+	trade, err := r.store.UpdateTradeStatus(ctx, sqlc.UpdateTradeStatusParams{
+		ID:     int32(tradeId),
+		Status: string(status),
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.TradeResult{}, fmt.Errorf("%w: id %d", domain.ErrTradeNotFound, tradeId)
+	}
+	if err != nil {
+		return domain.TradeResult{}, fmt.Errorf("getting trade %d: %w", tradeId, err)
+	}
+	return rowToTradeResult(trade)
+}
 func rowToTradeResult(trade sqlc.Trade) (domain.TradeResult, error) {
 	targetPortfolio, err := rawToTargetPortfolio(trade.TargetPortfolio)
 	if err != nil {

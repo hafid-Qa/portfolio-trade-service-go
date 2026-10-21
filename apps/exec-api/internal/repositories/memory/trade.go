@@ -55,3 +55,29 @@ func (r *TradeRepo) GetByUserID(ctx context.Context, userID int64) ([]domain.Tra
 	}
 	return trades, nil
 }
+
+func (r *TradeRepo) UpdateStatus(ctx context.Context, tradeId int64, status domain.TradeStatus) (domain.TradeResult, error) {
+	if !status.Valid() {
+		return domain.TradeResult{}, fmt.Errorf("invalid trade status %q", status)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	trade, ok := r.trades[tradeId]
+	if !ok {
+		return domain.TradeResult{}, fmt.Errorf("%w: id %d", domain.ErrTradeNotFound, tradeId)
+	}
+	updated := domain.NewTradeResult(
+		trade.ID(),
+		trade.Amount(),
+		trade.TargetPortfolio(),
+		trade.Orders(),
+		trade.UserID(),
+		status,
+		trade.CreatedAt(),
+		time.Now(),
+	)
+	r.trades[tradeId] = updated
+	return updated, nil
+}
