@@ -64,12 +64,6 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 	var portfolioRepo portfolioCatalog
 	var tradeRepo domain.TradeRepository
 	var tradeProducer domain.TradeProducer
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
-		Addr:     config.BrokerAddr,
-		Username: config.BrokerUser,
-		Password: config.BrokerPassword,
-	})
-	tradeProducer = queue.NewTradeProducer(asynqClient)
 
 	switch config.DataSource {
 	case "memory":
@@ -82,6 +76,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 			return nil, fmt.Errorf("failed to initialize repositories: %w", err)
 		}
 		stockRepo, portfolioRepo, tradeRepo = memStockRepo, memPortfolioRepo, memory.NewTradeRepo()
+		tradeProducer = memory.NewTradeProducer()
 		if err := validateReferentialIntegrity(context.Background(), stockRepo, portfolioRepo); err != nil {
 			return nil, err
 		}
@@ -93,6 +88,12 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		store = sqlc.NewStore(conn)
 		stockRepo, portfolioRepo, tradeRepo = postgres.NewStockRepo(*store), postgres.NewPortfolioRepo(*store), postgres.NewTradeRepo(*store)
 
+		asynqClient := asynq.NewClient(asynq.RedisClientOpt{
+			Addr:     config.BrokerAddr,
+			Username: config.BrokerUser,
+			Password: config.BrokerPassword,
+		})
+		tradeProducer = queue.NewTradeProducer(asynqClient)
 	}
 
 	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc, tradeProducer)
