@@ -92,6 +92,7 @@ services:
   consumer:
     <<: *backend
     container_name: consumer
+    env_file: .env
     depends_on:
       broker:
         condition: service_healthy
