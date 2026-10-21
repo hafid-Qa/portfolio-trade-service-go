@@ -91,6 +91,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Router /api/users/{user_id}/trades/{id} [get]
+// @Param user_id path int true "User ID"
 func (server *Server) GetTradeHanlder(c *gin.Context) {
 	var uri GetTradeRequest
 	if err := c.ShouldBindUri(&uri); err != nil {
@@ -114,6 +115,7 @@ func (server *Server) GetTradeHanlder(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Router /api/users/{user_id}/trades [get]
+// @Param user_id path int true "User ID"
 func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
 	var uri TradeRequestByUser
 	if err := c.ShouldBindUri(&uri); err != nil {
