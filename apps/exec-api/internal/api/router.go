@@ -60,7 +60,7 @@ func (server *Server) healthHandler(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /api/users/:user_id/trades [post]
+// @Router /api/users/{user_id}/trades [post]
 func (server *Server) TradeHandler(c *gin.Context) {
 	var uri TradeRequestByUser
 	if err := c.ShouldBindUri(&uri); err != nil {
@@ -90,7 +90,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Router /api/users/:user_id/trade/:id [get]
+// @Router /api/users/{user_id}/trades/{id} [get]
 func (server *Server) GetTradeHanlder(c *gin.Context) {
 	var uri GetTradeRequest
 	if err := c.ShouldBindUri(&uri); err != nil {
@@ -113,7 +113,7 @@ func (server *Server) GetTradeHanlder(c *gin.Context) {
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Router /api/users/{user_id}/trades} [get]
+// @Router /api/users/{user_id}/trades [get]
 func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
 	var uri TradeRequestByUser
 	if err := c.ShouldBindUri(&uri); err != nil {
