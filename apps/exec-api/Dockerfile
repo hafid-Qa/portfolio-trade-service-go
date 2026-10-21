@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY ./apps/exec-api .
 
-RUN apk add --no-cache git && \
+RUN apk add --no-cache git curl && \
     go install github.com/air-verse/air@latest && \
     chmod +x /scripts/entrypoint.sh /go/bin/air
 
