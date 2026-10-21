@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/hibiken/asynq"
 )
@@ -21,6 +22,26 @@ func (h *TradeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error 
 		return fmt.Errorf("unmarshaling payload: %w", err)
 	}
 	log.Printf("processed trade execution task: trade_id=%d", payload.TradeID)
+
+	_, err := h.tradeRepo.UpdateStatus(ctx, payload.TradeID, domain.TradeStatusExecuting)
+	if err != nil {
+		return fmt.Errorf("updating trade %d to executing: %w", payload.TradeID, err)
+	}
+
+	time.Sleep(time.Second)
+
+	var status domain.TradeStatus
+	if payload.TradeID%10 == 0 {
+		status = domain.TradeStatusFailed
+	} else {
+		status = domain.TradeStatusCompleted
+	}
+
+	_, err = h.tradeRepo.UpdateStatus(ctx, payload.TradeID, status)
+	if err != nil {
+		return fmt.Errorf("updating trade %d to %s: %w", payload.TradeID, status, err)
+	}
+
 	return nil
 }
 
