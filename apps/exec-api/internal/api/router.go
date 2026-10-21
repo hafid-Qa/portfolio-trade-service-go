@@ -111,18 +111,30 @@ func (server *Server) GetTradeHanlder(c *gin.Context) {
 	c.JSON(http.StatusOK, toTradeResponse(res))
 }
 
+// @Summary List a user's trades
+// @Description Returns a paginated list of trades for a user, most recent first.
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Router /api/users/{user_id}/trades [get]
 // @Param user_id path int true "User ID"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Page size" default(50)
+// @Success 200 {object} PaginatedResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/{user_id}/trades [get]
 func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
 	var uri TradeRequestByUser
+	var query Pagination
 	if err := c.ShouldBindUri(&uri); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	trades, err := server.tradeService.GetTradesByUserID(c.Request.Context(), uri.UserID)
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	trades, totalCount, err := server.tradeService.GetTradesByUserID(c.Request.Context(), uri.UserID, query.Page, query.Limit)
 	if err != nil {
 
 		c.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -132,5 +144,12 @@ func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
 	for idx, res := range trades {
 		tradeRes[idx] = toTradeResponse(res)
 	}
-	c.JSON(http.StatusOK, tradeRes)
+	paginatedRes := PaginatedResponse{
+		Data:       tradeRes,
+		TotalCount: int(totalCount),
+		Page:       int(query.Page),
+		Limit:      int(query.Limit),
+	}
+
+	c.JSON(http.StatusOK, paginatedRes)
 }

@@ -10,6 +10,17 @@ import (
 	"encoding/json"
 )
 
+const countTradesByUserID = `-- name: CountTradesByUserID :one
+SELECT COUNT(*) FROM trades WHERE user_id = $1
+`
+
+func (q *Queries) CountTradesByUserID(ctx context.Context, userID int32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTradesByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTrade = `-- name: CreateTrade :one
 INSERT INTO trades (user_id, amount, target_portfolio, orders, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -53,6 +64,48 @@ DELETE FROM trades WHERE id = $1
 func (q *Queries) DeleteTrade(ctx context.Context, id int32) error {
 	_, err := q.db.ExecContext(ctx, deleteTrade, id)
 	return err
+}
+
+const getPaginatedTradesByUserID = `-- name: GetPaginatedTradesByUserID :many
+SELECT id, user_id, amount, target_portfolio, orders, status, created_at, updated_at FROM trades WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+`
+
+type GetPaginatedTradesByUserIDParams struct {
+	UserID int32 `json:"user_id"`
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) GetPaginatedTradesByUserID(ctx context.Context, arg GetPaginatedTradesByUserIDParams) ([]Trade, error) {
+	rows, err := q.db.QueryContext(ctx, getPaginatedTradesByUserID, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Trade{}
+	for rows.Next() {
+		var i Trade
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Amount,
+			&i.TargetPortfolio,
+			&i.Orders,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTradeByID = `-- name: GetTradeByID :one

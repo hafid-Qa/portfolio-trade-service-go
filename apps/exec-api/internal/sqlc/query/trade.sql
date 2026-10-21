@@ -6,8 +6,11 @@ RETURNING *;
 SELECT * FROM trades WHERE id = $1;
 -- name: GetTradesByUserID :many
 SELECT * FROM trades WHERE user_id = $1 ORDER BY created_at DESC;
+-- name: GetPaginatedTradesByUserID :many
+SELECT * FROM trades WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3;
 -- name: UpdateTradeStatus :one
 UPDATE trades SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *;
 -- name: DeleteTrade :exec
 DELETE FROM trades WHERE id = $1;
-
+-- name: CountTradesByUserID :one
+SELECT COUNT(*) FROM trades WHERE user_id = $1;

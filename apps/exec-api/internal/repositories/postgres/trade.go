@@ -85,6 +85,36 @@ func (r *TradeRepo) UpdateStatus(ctx context.Context, tradeId int64, status doma
 	}
 	return rowToTradeResult(trade)
 }
+
+func (r *TradeRepo) GetPaginatedByUser(ctx context.Context, userID int64, limit int64, offset int64) ([]domain.TradeResult, error) {
+	rows, err := r.store.GetPaginatedTradesByUserID(ctx, sqlc.GetPaginatedTradesByUserIDParams{
+		UserID: int32(userID),
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listing trades for user %d: %w", userID, err)
+	}
+
+	trades := make([]domain.TradeResult, len(rows))
+	for i, row := range rows {
+		trade, err := rowToTradeResult(row)
+		if err != nil {
+			return nil, err
+		}
+		trades[i] = trade
+	}
+	return trades, nil
+}
+
+func (r *TradeRepo) GetCountByUserID(ctx context.Context, userID int64) (int64, error) {
+	count, err := r.store.CountTradesByUserID(ctx, int32(userID))
+	if err != nil {
+		return 0, fmt.Errorf("listing trades for user %d: %w", userID, err)
+	}
+	return count, nil
+}
+
 func rowToTradeResult(trade sqlc.Trade) (domain.TradeResult, error) {
 	targetPortfolio, err := rawToTargetPortfolio(trade.TargetPortfolio)
 	if err != nil {

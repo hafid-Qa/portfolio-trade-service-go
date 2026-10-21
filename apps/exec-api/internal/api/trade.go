@@ -13,6 +13,11 @@ type TradeRequestByUser struct {
 	UserID int64 `uri:"user_id" binding:"required,gte=1"`
 }
 
+type Pagination struct {
+	Page  int64 `form:"page,default=1" binding:"gte=1"`
+	Limit int64 `form:"limit,default=50" binding:"gte=1"`
+}
+
 type GetTradeRequest struct {
 	UserID int64 `uri:"user_id" binding:"required,gte=1"`
 	ID     int64 `uri:"id" binding:"required,gte=1"`
@@ -36,4 +41,11 @@ type TradeResponse struct {
 	Status          string                `json:"status"`
 	CreatedAt       time.Time             `json:"created_at"`
 	UpdatedAt       time.Time             `json:"updated_at"`
+}
+
+type PaginatedResponse struct {
+	Data       []TradeResponse `json:"data"`
+	TotalCount int             `json:"totalCount"`
+	Page       int             `json:"page"`
+	Limit      int             `json:"limit"`
 }

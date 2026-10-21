@@ -95,6 +95,40 @@ func (f *fakeTradeRepo) GetByUserID(ctx context.Context, userID int64) ([]TradeR
 	return result, nil
 }
 
+func (f *fakeTradeRepo) GetPaginatedByUser(ctx context.Context, userID int64, limit int64, offset int64) ([]TradeResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	var result []TradeResult
+	for _, trade := range f.trades {
+		if trade.UserID() == userID {
+			result = append(result, trade)
+		}
+	}
+	size := int64(len(result))
+	if offset >= size {
+		return []TradeResult{}, nil
+	}
+	end := offset + limit
+	if end > size {
+		end = size
+	}
+	return result[offset:end], nil
+}
+
+func (f *fakeTradeRepo) GetCountByUserID(ctx context.Context, userID int64) (int64, error) {
+	if f.err != nil {
+		return 0, f.err
+	}
+	var count int64
+	for _, trade := range f.trades {
+		if trade.UserID() == userID {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func (f *fakeTradeRepo) UpdateStatus(ctx context.Context, tradeId int64, status TradeStatus) (TradeResult, error) {
 	if f.err != nil {
 		return TradeResult{}, f.err
@@ -259,9 +293,12 @@ func TestTradeService_GetTradesByUserID_HappyPath(t *testing.T) {
 	}}
 	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
-	result, err := svc.GetTradesByUserID(context.Background(), 1)
+	result, totalCount, err := svc.GetTradesByUserID(context.Background(), 1, 1, 50)
 	if err != nil {
 		t.Fatalf("GetTradesByUserID() error = %v", err)
+	}
+	if totalCount != 2 {
+		t.Fatalf("GetTradesByUserID(1) totalCount = %d, want 2", totalCount)
 	}
 	if len(result) != 2 {
 		t.Fatalf("GetTradesByUserID(1) returned %d trades, want 2", len(result))
@@ -277,9 +314,12 @@ func TestTradeService_GetTradesByUserID_Empty(t *testing.T) {
 	tradeRepo := &fakeTradeRepo{trades: map[int64]TradeResult{}}
 	svc := NewTradeService(&fakeStockRepo{}, &fakePortfolioRepo{}, tradeRepo, &fakeCalcClient{}, &fakeTradeProducer{})
 
-	result, err := svc.GetTradesByUserID(context.Background(), 999)
+	result, totalCount, err := svc.GetTradesByUserID(context.Background(), 999, 1, 50)
 	if err != nil {
 		t.Fatalf("GetTradesByUserID() error = %v", err)
+	}
+	if totalCount != 0 {
+		t.Errorf("GetTradesByUserID() totalCount = %d, want 0", totalCount)
 	}
 	if len(result) != 0 {
 		t.Errorf("GetTradesByUserID() returned %d trades, want 0", len(result))

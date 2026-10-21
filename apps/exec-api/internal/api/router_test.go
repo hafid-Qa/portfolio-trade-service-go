@@ -244,12 +244,15 @@ func TestGetTradeByUserHandler_HappyPath(t *testing.T) {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
 
-	var resp []TradeResponse
+	var resp PaginatedResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
 	}
-	if len(resp) != 1 {
-		t.Fatalf("len(resp) = %d, want 1", len(resp))
+	if resp.TotalCount != 1 {
+		t.Fatalf("resp.TotalCount = %d, want 1", resp.TotalCount)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("len(resp.Data) = %d, want 1", len(resp.Data))
 	}
 }
 
@@ -260,12 +263,15 @@ func TestGetTradeByUserHandler_Empty(t *testing.T) {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
 
-	var resp []TradeResponse
+	var resp PaginatedResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
 	}
-	if len(resp) != 0 {
-		t.Errorf("len(resp) = %d, want 0", len(resp))
+	if resp.TotalCount != 0 {
+		t.Errorf("resp.TotalCount = %d, want 0", resp.TotalCount)
+	}
+	if len(resp.Data) != 0 {
+		t.Errorf("len(resp.Data) = %d, want 0", len(resp.Data))
 	}
 }
 

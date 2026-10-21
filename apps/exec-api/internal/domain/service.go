@@ -72,13 +72,18 @@ func (s *TradeService) GetTrade(ctx context.Context, userID, id int64) (TradeRes
 	}
 	return trade, nil
 }
-func (s *TradeService) GetTradesByUserID(ctx context.Context, userID int64) ([]TradeResult, error) {
-	trades, err := s.TradeRepo.GetByUserID(ctx, userID)
+func (s *TradeService) GetTradesByUserID(ctx context.Context, userID int64, page int64, limit int64) ([]TradeResult, int64, error) {
+	offset := (page - 1) * limit
+	trades, err := s.TradeRepo.GetPaginatedByUser(ctx, userID, limit, offset)
 	if err != nil {
-		return []TradeResult{}, err
+		return []TradeResult{}, 0, err
+	}
+	totalCount, err := s.TradeRepo.GetCountByUserID(ctx, userID)
+	if err != nil {
+		return []TradeResult{}, 0, err
 	}
 
-	return trades, nil
+	return trades, totalCount, nil
 }
 
 func toInt64Map(m map[Symbol]int) map[string]int64 {
