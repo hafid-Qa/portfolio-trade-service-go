@@ -93,6 +93,9 @@ services:
     <<: *backend
     container_name: consumer
     env_file: .env
+    volumes:
+      - ./apps/exec-api:/app:rw
+      - ./data:/data:rw
     depends_on:
       broker:
         condition: service_healthy
