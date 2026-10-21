@@ -76,7 +76,7 @@ func LoadConfig(ctx context.Context) (*Config, error) {
 	testDBHostName := fmt.Sprintf("%s_test", cfg.DBHostName)
 	cfg.TestDBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName, cfg.DBSslmode)
-	cfg.BrokerAddr = fmt.Sprintf("redis://%s:%s@%s:%d", cfg.BrokerUser, cfg.BrokerPassword, cfg.BrokerHost, cfg.BrokerPort)
+	cfg.BrokerAddr = fmt.Sprintf("%s:%d", cfg.BrokerHost, cfg.BrokerPort)
 	return cfg, nil
 }
 

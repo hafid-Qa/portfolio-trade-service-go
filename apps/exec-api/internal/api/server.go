@@ -64,9 +64,12 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 	var portfolioRepo portfolioCatalog
 	var tradeRepo domain.TradeRepository
 	var tradeProducer domain.TradeProducer
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: config.BrokerAddr})
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
+		Addr:     config.BrokerAddr,
+		Username: config.BrokerUser,
+		Password: config.BrokerPassword,
+	})
 	tradeProducer = queue.NewTradeProducer(asynqClient)
-	defer asynqClient.Close()
 
 	switch config.DataSource {
 	case "memory":
