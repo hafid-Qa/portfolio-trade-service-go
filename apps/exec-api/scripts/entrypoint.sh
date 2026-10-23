@@ -22,10 +22,16 @@ run_migrations() {
     -verbose up
 }
 
+seed_stocks() {
+  echo "Seeding stocks"
+  go run ./cmd/seed
+}
+
 generate_swagger_docs
 
 if [ "${DATA_SOURCE:-postgres}" != "memory" ]; then
   run_migrations
+  seed_stocks
 fi
 
 if [ "$#" -eq 0 ]; then
