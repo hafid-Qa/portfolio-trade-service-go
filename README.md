@@ -86,11 +86,15 @@ runs `migrate ... up` before the app starts, skipped when `DATA_SOURCE=memory`) 
 manual step needed there, and it's idempotent (reports `no change` if nothing's
 pending).
 
-Seeding is still manual, though: migrations only create schema, nothing inserts the
-reference data `calc`'s calculations are checked against. On first run (or after a
-full Docker reset), insert `stocks`/`portfolios` from `data/*.yml` yourself — see
-`data/stocks.yml`, `data/portfolio.yml` for the values; insert via `psql` or `sqlc`'s
-generated `CreateStock`/`CreatePortfolio`.
+Stocks are seeded automatically too, right after migrations (`cmd/seed`, also skipped
+in `memory` mode): it reads `data/stocks.yml` and upserts every entry into `stocks` in
+a single batched query, keyed on `ticker` — safe to run on every container start,
+since re-seeding an already-seeded DB just reaffirms the same rows rather than erroring
+or duplicating them.
+
+Portfolios are still manual, though: nothing seeds `data/portfolio.yml` yet. Insert via
+`psql` or `sqlc`'s generated `CreatePortfolio` — see `data/portfolio.yml` for the
+values.
 
 ### `memory` fallback
 
@@ -148,6 +152,8 @@ apps/
     cmd/
       server/main.go                HTTP API entrypoint
       worker/main.go                asynq worker entrypoint — consumes the broker queue
+      seed/main.go                  batch-upserts data/stocks.yml into Postgres, run by
+                                     entrypoint.sh right after migrations
     config/config.go               ServerPort, CalcAddr, DataSource, DB_*, Broker* config
     internal/
       domain/
@@ -171,7 +177,9 @@ apps/
       worker/
         trade_hanlder.go            TradeHandler.ProcessTask — asynq.Handler consuming
                                      trade:execute: pending -> executing -> completed/
-                                     failed (trade ID divisible by 10 fails, deterministic)
+                                     failed (trade ID divisible by 10 fails, deterministic).
+                                     A not-found trade or malformed payload is wrapped
+                                     with asynq.SkipRetry -- terminal, not worth retrying.
       repositories/
         memory/                     YAML-backed stock/portfolio repos, in-memory
                                      trade store, no-op TradeProducer —
