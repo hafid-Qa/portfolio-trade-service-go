@@ -12,6 +12,7 @@ import (
 
 func seedPortfolio(t *testing.T, userID int64, weights map[string]int) {
 	t.Helper()
+	seedUser(t, userID)
 	data, err := json.Marshal(weights)
 	if err != nil {
 		t.Fatalf("marshaling target_portfolio: %v", err)

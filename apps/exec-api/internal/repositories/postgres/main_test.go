@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -42,6 +43,21 @@ func TestMain(m *testing.M) {
 	truncateAllTables(testDB)
 
 	os.Exit(m.Run())
+}
+
+// seedUser inserts a minimal users row for userID, needed since portfolios
+// and trades now carry a foreign key to users -- ON CONFLICT DO NOTHING so
+// callers seeding multiple trades/portfolios for the same userID don't collide.
+func seedUser(t *testing.T, userID int64) {
+	t.Helper()
+	_, err := testDB.Exec(
+		`INSERT INTO users (id, full_name, username, email, password_hash)
+		 VALUES ($1, 'Test User', $2, $3, 'x') ON CONFLICT (id) DO NOTHING`,
+		userID, fmt.Sprintf("test_user_%d", userID), fmt.Sprintf("test%d@example.com", userID),
+	)
+	if err != nil {
+		t.Fatalf("seeding user %d: %v", userID, err)
+	}
 }
 
 func runMigrations(dbURL string) {

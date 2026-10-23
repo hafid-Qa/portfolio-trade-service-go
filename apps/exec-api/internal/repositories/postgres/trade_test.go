@@ -10,6 +10,7 @@ import (
 
 func seedTrade(t *testing.T, userID int64, amount int, targetPortfolio map[domain.Symbol]int, orders []domain.Order, status domain.TradeStatus) domain.TradeResult {
 	t.Helper()
+	seedUser(t, userID)
 	repo := NewTradeRepo(testStore)
 	trade, err := repo.Create(context.Background(), userID, amount, targetPortfolio, orders, status)
 	if err != nil {
