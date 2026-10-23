@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -84,8 +85,12 @@ func TestTradeHandler_ProcessTask_InvalidPayload(t *testing.T) {
 	handler := NewTradeHandler(repo)
 	task := asynq.NewTask(queue.TypeTradeExecution, []byte("not json"))
 
-	if err := handler.ProcessTask(context.Background(), task); err == nil {
+	err := handler.ProcessTask(context.Background(), task)
+	if err == nil {
 		t.Fatal("ProcessTask() error = nil, want error for invalid payload")
+	}
+	if !errors.Is(err, asynq.SkipRetry) {
+		t.Errorf("ProcessTask() error = %v, want asynq.SkipRetry (malformed payload can't be fixed by retrying)", err)
 	}
 }
 
@@ -93,8 +98,12 @@ func TestTradeHandler_ProcessTask_UnknownTrade(t *testing.T) {
 	repo := memory.NewTradeRepo()
 	handler := NewTradeHandler(repo)
 
-	if err := handler.ProcessTask(context.Background(), newTradeTask(t, 999999)); err == nil {
+	err := handler.ProcessTask(context.Background(), newTradeTask(t, 999999))
+	if err == nil {
 		t.Fatal("ProcessTask() error = nil, want error for unknown trade id")
+	}
+	if !errors.Is(err, asynq.SkipRetry) {
+		t.Errorf("ProcessTask() error = %v, want asynq.SkipRetry (unknown trade ID can't be fixed by retrying)", err)
 	}
 }
 

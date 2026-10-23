@@ -5,6 +5,7 @@ import (
 	"app/internal/queue"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -16,16 +17,27 @@ type TradeHandler struct {
 	tradeRepo domain.TradeRepository
 }
 
+// terminal wraps err with asynq.SkipRetry -- used for failures that retrying
+// can never fix (malformed payload, a trade ID that doesn't exist), so asynq
+// archives the task immediately instead of burning retries on it.
+func terminal(err error) error {
+	return fmt.Errorf("%w: %w", err, asynq.SkipRetry)
+}
+
 func (h *TradeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
 	var payload queue.TradeExecutionPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
-		return fmt.Errorf("unmarshaling payload: %w", err)
+		return terminal(fmt.Errorf("unmarshaling payload: %w", err))
 	}
 	log.Printf("processed trade execution task: trade_id=%d", payload.TradeID)
 
 	_, err := h.tradeRepo.UpdateStatus(ctx, payload.TradeID, domain.TradeStatusExecuting)
 	if err != nil {
-		return fmt.Errorf("updating trade %d to executing: %w", payload.TradeID, err)
+		err = fmt.Errorf("updating trade %d to executing: %w", payload.TradeID, err)
+		if errors.Is(err, domain.ErrTradeNotFound) {
+			return terminal(err)
+		}
+		return err
 	}
 
 	time.Sleep(time.Second)
@@ -39,7 +51,11 @@ func (h *TradeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error 
 
 	_, err = h.tradeRepo.UpdateStatus(ctx, payload.TradeID, status)
 	if err != nil {
-		return fmt.Errorf("updating trade %d to %s: %w", payload.TradeID, status, err)
+		err = fmt.Errorf("updating trade %d to %s: %w", payload.TradeID, status, err)
+		if errors.Is(err, domain.ErrTradeNotFound) {
+			return terminal(err)
+		}
+		return err
 	}
 
 	return nil
