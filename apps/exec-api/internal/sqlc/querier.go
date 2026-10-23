@@ -24,6 +24,7 @@ type Querier interface {
 	ListPortfolios(ctx context.Context) ([]Portfolio, error)
 	ListStocks(ctx context.Context) ([]Stock, error)
 	UpdateTradeStatus(ctx context.Context, arg UpdateTradeStatusParams) (Trade, error)
+	UpsertStocks(ctx context.Context, arg UpsertStocksParams) ([]Stock, error)
 }
 
 var _ Querier = (*Queries)(nil)

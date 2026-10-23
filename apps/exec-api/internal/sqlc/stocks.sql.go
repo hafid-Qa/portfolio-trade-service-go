@@ -113,3 +113,48 @@ func (q *Queries) ListStocks(ctx context.Context) ([]Stock, error) {
 	}
 	return items, nil
 }
+
+const upsertStocks = `-- name: UpsertStocks :many
+INSERT INTO stocks (ticker, price, tradable)
+SELECT unnest($1::varchar[]),
+       unnest($2::int[]),
+       unnest($3::bool[])
+ON CONFLICT (ticker) DO UPDATE SET price = EXCLUDED.price, tradable = EXCLUDED.tradable, updated_at = NOW()
+RETURNING id, ticker, price, tradable, created_at, updated_at
+`
+
+type UpsertStocksParams struct {
+	Tickers   []string `json:"tickers"`
+	Prices    []int32  `json:"prices"`
+	Tradables []bool   `json:"tradables"`
+}
+
+func (q *Queries) UpsertStocks(ctx context.Context, arg UpsertStocksParams) ([]Stock, error) {
+	rows, err := q.db.QueryContext(ctx, upsertStocks, pq.Array(arg.Tickers), pq.Array(arg.Prices), pq.Array(arg.Tradables))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Stock{}
+	for rows.Next() {
+		var i Stock
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ticker,
+			&i.Price,
+			&i.Tradable,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
