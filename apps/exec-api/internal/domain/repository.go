@@ -19,3 +19,13 @@ type TradeRepository interface {
 	UpdateStatus(ctx context.Context, tradeId int64, status TradeStatus) (TradeResult, error)
 	GetCountByUserID(ctx context.Context, userID int64) (int64, error)
 }
+
+type UserRepository interface {
+	Get(ctx context.Context, id int64) (UserResult, error)
+	GetByUsername(ctx context.Context, username string) (UserResult, error)
+	GetByEmail(ctx context.Context, email string) (UserResult, error)
+	Create(ctx context.Context, fullName string, userName string, email string, passwordHash string) (UserResult, error)
+	UpdateProfile(ctx context.Context, id int64, fullName *string, userName *string, email *string) (UserResult, error)
+	UpdatePassword(ctx context.Context, id int64, passwordHash string) (UserResult, error)
+	UpdateLastLogin(ctx context.Context, id int64) (UserResult, error)
+}

@@ -45,6 +45,7 @@ var (
 	ErrInvalidPortfolio    = errors.New("invalid portfolio")
 	ErrPortfolioNotFound   = errors.New("portfolio not found")
 	ErrTradeNotFound       = errors.New("trade not found")
+	ErrUserNotFound        = errors.New("user not found")
 	ErrUnknownStock        = errors.New("portfolio references unknown stock")
 	ErrInvalidSymbol       = errors.New("invalid symbol")
 	ErrInvalidUserId       = errors.New("invalid user id")
