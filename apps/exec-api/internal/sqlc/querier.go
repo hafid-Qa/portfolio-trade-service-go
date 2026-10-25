@@ -13,17 +13,25 @@ type Querier interface {
 	CreatePortfolio(ctx context.Context, arg CreatePortfolioParams) (Portfolio, error)
 	CreateStock(ctx context.Context, arg CreateStockParams) (Stock, error)
 	CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeletePortfolio(ctx context.Context, userID int32) error
 	DeleteStock(ctx context.Context, ticker string) error
 	DeleteTrade(ctx context.Context, id int32) error
+	DeleteUser(ctx context.Context, id int32) error
 	GetPaginatedTradesByUserID(ctx context.Context, arg GetPaginatedTradesByUserIDParams) ([]Trade, error)
 	GetPortfolioByUserID(ctx context.Context, userID int32) (Portfolio, error)
 	GetStocksByTickers(ctx context.Context, dollar_1 []string) ([]Stock, error)
 	GetTradeByID(ctx context.Context, id int32) (Trade, error)
 	GetTradesByUserID(ctx context.Context, userID int32) ([]Trade, error)
+	GetUserByEmail(ctx context.Context, lower string) (User, error)
+	GetUserByID(ctx context.Context, id int32) (User, error)
+	GetUserByUsername(ctx context.Context, lower string) (User, error)
 	ListPortfolios(ctx context.Context) ([]Portfolio, error)
 	ListStocks(ctx context.Context) ([]Stock, error)
 	UpdateTradeStatus(ctx context.Context, arg UpdateTradeStatusParams) (Trade, error)
+	UpdateUserLastLogin(ctx context.Context, id int32) (User, error)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (User, error)
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpsertStocks(ctx context.Context, arg UpsertStocksParams) ([]Stock, error)
 }
 

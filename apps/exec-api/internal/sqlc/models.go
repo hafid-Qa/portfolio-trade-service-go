@@ -5,6 +5,7 @@
 package sqlc
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 )
@@ -35,4 +36,15 @@ type Trade struct {
 	Status          string          `json:"status"`
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
+type User struct {
+	ID           int32        `json:"id"`
+	FullName     string       `json:"full_name"`
+	Username     string       `json:"username"`
+	Email        string       `json:"email"`
+	PasswordHash string       `json:"password_hash"`
+	LastLogin    sql.NullTime `json:"last_login"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
 }
