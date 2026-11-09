@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/sethvargo/go-envconfig"
 )
@@ -47,6 +48,10 @@ type Config struct {
 	BrokerUser     string `env:"BROKER_USER,required"`
 	BrokerPassword string `env:"BROKER_PASSWORD,required"`
 	BrokerAddr     string
+
+	// Auth config
+	TokenSymmetricKey   string        `env:"TOKEN_SYMMETRIC_KEY,required"`
+	AccessTokenDuration time.Duration `env:"ACCESS_TOKEN_DURATION,default=15m"`
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
