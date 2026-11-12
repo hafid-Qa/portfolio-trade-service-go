@@ -67,6 +67,27 @@ func TestUserRepo_Create_LowercasesUsernameAndEmail(t *testing.T) {
 	}
 }
 
+// Username and email are UNIQUE (and stored lowercased), so re-registering
+// either -- in any case -- must surface as ErrUserAlreadyExists, not a raw DB error.
+func TestUserRepo_Create_Duplicate(t *testing.T) {
+	seeded := seedTestUser(t)
+	repo := NewUserRepo(testStore)
+
+	cases := map[string]struct{ username, email string }{
+		"same username":       {seeded.UserName(), "other_" + seeded.Email()},
+		"same email":          {"other_" + seeded.UserName(), seeded.Email()},
+		"username, uppercase": {strings.ToUpper(seeded.UserName()), "upper_" + seeded.Email()},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := repo.Create(context.Background(), "Dup User", c.username, c.email, "x")
+			if !errors.Is(err, domain.ErrUserAlreadyExists) {
+				t.Errorf("Create() error = %v, want ErrUserAlreadyExists", err)
+			}
+		})
+	}
+}
+
 func TestUserRepo_Get(t *testing.T) {
 	seeded := seedTestUser(t)
 
