@@ -51,22 +51,19 @@ func (server *Server) healthHandler(c *gin.Context) {
 // @Description The amount is apportioned across the portfolio's stocks by their target percentages;
 // @Description stocks that are not tradable or whose allocation falls below the minimum order amount
 // @Description are excluded and the remainder is redistributed among the rest.
-// @Tags Users
+// @Tags Trades
 // @Accept json
 // @Produce json
-// @Param user_id path int true "User ID"
+// @Security BearerAuth
 // @Param request body TradeRequest true "Trade amount"
 // @Success 200 {object} TradeResponse
 // @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /api/users/{user_id}/trades [post]
+// @Router /api/trades [post]
 func (server *Server) TradeHandler(c *gin.Context) {
-	var uri TradeRequestByUser
-	if err := c.ShouldBindUri(&uri); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
+	userID := authPayload(c).UserID
 
 	var req TradeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -74,7 +71,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 		return
 	}
 
-	res, err := server.tradeService.CreateTrade(c.Request.Context(), uri.UserID, req.Amount)
+	res, err := server.tradeService.CreateTrade(c.Request.Context(), userID, req.Amount)
 	if err != nil {
 		if errors.Is(err, domain.ErrPortfolioNotFound) {
 			c.JSON(http.StatusNotFound, errorResponse(err))
@@ -87,18 +84,23 @@ func (server *Server) TradeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, toTradeResponse(res))
 }
 
-// @Tags Users
+// @Tags Trades
 // @Accept json
 // @Produce json
-// @Router /api/users/{user_id}/trades/{id} [get]
-// @Param user_id path int true "User ID"
+// @Security BearerAuth
+// @Param id path int true "Trade ID"
+// @Success 200 {object} TradeResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/trades/{id} [get]
 func (server *Server) GetTradeHanlder(c *gin.Context) {
 	var uri GetTradeRequest
 	if err := c.ShouldBindUri(&uri); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	res, err := server.tradeService.GetTrade(c.Request.Context(), uri.UserID, uri.ID)
+	res, err := server.tradeService.GetTrade(c.Request.Context(), authPayload(c).UserID, uri.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrTradeNotFound) {
 			c.JSON(http.StatusNotFound, errorResponse(err))
@@ -113,28 +115,24 @@ func (server *Server) GetTradeHanlder(c *gin.Context) {
 
 // @Summary List a user's trades
 // @Description Returns a paginated list of trades for a user, most recent first.
-// @Tags Users
+// @Tags Trades
 // @Accept json
 // @Produce json
-// @Param user_id path int true "User ID"
+// @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Page size" default(50)
 // @Success 200 {object} PaginatedResponse
 // @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /api/users/{user_id}/trades [get]
+// @Router /api/trades [get]
 func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
-	var uri TradeRequestByUser
 	var query Pagination
-	if err := c.ShouldBindUri(&uri); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	trades, totalCount, err := server.tradeService.GetTradesByUserID(c.Request.Context(), uri.UserID, query.Page, query.Limit)
+	trades, totalCount, err := server.tradeService.GetTradesByUserID(c.Request.Context(), authPayload(c).UserID, query.Page, query.Limit)
 	if err != nil {
 
 		c.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -152,4 +150,104 @@ func (server *Server) GetTradeByUserHanlder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, paginatedRes)
+}
+
+// @Summary Create a user
+// @Description Registers a new user. Username and email are stored lowercased
+// @Description and must be unique.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body UserRequest true "New user"
+// @Success 201 {object} UserResponse
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users [post]
+func (server *Server) CreateUserHandler(c *gin.Context) {
+	var req UserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	user, err := server.userService.Register(c.Request.Context(), req.FullName, req.Username, req.Email, req.Password)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserAlreadyExists) {
+			// Deliberately doesn't say which field clashed.
+			c.JSON(http.StatusConflict, errorResponse(errUserAlreadyExists))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+
+	c.JSON(http.StatusCreated, toUserResponse(user))
+}
+
+var (
+	errUserAlreadyExists = errors.New("username or email already taken")
+
+	// errInvalidCredentials is the only error login reports to the client:
+	// a malformed request, unknown user and wrong password all look the same.
+	errInvalidCredentials = errors.New("invalid credentials")
+	errInternal           = errors.New("internal server error")
+)
+
+// @Summary Log in
+// @Description Exchanges username and password for an access token. Every
+// @Description credential failure returns the same 401.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body loginUserRequest true "Credentials"
+// @Success 200 {object} loginResponse
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/login [post]
+func (server *Server) LoginHandler(c *gin.Context) {
+	var req loginUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusUnauthorized, errorResponse(errInvalidCredentials))
+		return
+	}
+
+	user, err := server.userService.Login(c.Request.Context(), req.Username, req.Password)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			c.JSON(http.StatusUnauthorized, errorResponse(errInvalidCredentials))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+
+	accessToken, err := server.tokenMaker.CreateToken(user.ID(), server.config.AccessTokenDuration)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+
+	c.JSON(http.StatusOK, loginResponse{
+		AccessToken: accessToken,
+		Type:        "Bearer",
+	})
+}
+
+// @Summary Log out
+// @Description Revokes the access token used for this request; it is rejected
+// @Description from then on, even before it expires.
+// @Tags Users
+// @Security BearerAuth
+// @Success 204
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/logout [post]
+func (server *Server) LogoutHandler(c *gin.Context) {
+	payload := authPayload(c)
+	if err := server.denylist.Revoke(c.Request.Context(), payload.ID, payload.ExpiredAt); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

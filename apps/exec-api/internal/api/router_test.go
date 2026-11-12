@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"app/config"
 
@@ -45,9 +46,10 @@ func (f *fakeCalcClient) Calculate(ctx context.Context, in *calcv1.CalculateRequ
 func testServer(t *testing.T) *Server {
 	t.Helper()
 	cfg := &config.Config{
-		DataSource:    "memory",
-		StockPath:     "/data/stocks.yml",
-		PortfolioPath: "/data/portfolio.yml",
+		DataSource:        "memory",
+		StockPath:         "/data/stocks.yml",
+		PortfolioPath:     "/data/portfolio.yml",
+		TokenSymmetricKey: testTokenKeyHex,
 	}
 	server, err := NewServer(cfg)
 	if err != nil {
@@ -61,9 +63,10 @@ func testServer(t *testing.T) *Server {
 func testServerWithCalc(t *testing.T, calc *fakeCalcClient) *Server {
 	t.Helper()
 	cfg := &config.Config{
-		DataSource:    "memory",
-		StockPath:     "/data/stocks.yml",
-		PortfolioPath: "/data/portfolio.yml",
+		DataSource:        "memory",
+		StockPath:         "/data/stocks.yml",
+		PortfolioPath:     "/data/portfolio.yml",
+		TokenSymmetricKey: testTokenKeyHex,
 	}
 	server, err := newServer(cfg, calc)
 	if err != nil {
@@ -75,6 +78,22 @@ func testServerWithCalc(t *testing.T, calc *fakeCalcClient) *Server {
 func doRequest(server *Server, method, path, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.router.ServeHTTP(w, req)
+	return w
+}
+
+// doRequestAs sends the request authenticated as userID, with a token minted
+// by the server's own maker -- the user comes from the token, not the path.
+func doRequestAs(t *testing.T, server *Server, userID int64, method, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	tok, err := server.tokenMaker.CreateToken(userID, time.Minute)
+	if err != nil {
+		t.Fatalf("CreateToken: %v", err)
+	}
+	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(authorizationHeaderKey, "Bearer "+tok)
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
 	return w
@@ -96,7 +115,7 @@ func TestTradeHandler_HappyPath(t *testing.T) {
 		{Symbol: "B", Amount: 6000, QuantityUnits: 38709},
 	}}}
 	server := testServerWithCalc(t, calc)
-	w := doRequest(server, http.MethodPost, "/api/users/1/trades", `{"amount": 10000}`)
+	w := doRequestAs(t, server, 1, http.MethodPost, "/api/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
@@ -125,7 +144,7 @@ func TestTradeHandler_HappyPath(t *testing.T) {
 
 func TestTradeHandler_UnknownUser(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodPost, "/api/users/999/trades", `{"amount": 10000}`)
+	w := doRequestAs(t, server, 999, http.MethodPost, "/api/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404, body = %s", w.Code, w.Body.String())
 	}
@@ -133,17 +152,28 @@ func TestTradeHandler_UnknownUser(t *testing.T) {
 
 func TestTradeHandler_AmountBelowMinimum(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodPost, "/api/users/1/trades", `{"amount": 500}`)
+	w := doRequestAs(t, server, 1, http.MethodPost, "/api/trades", `{"amount": 500}`)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400, body = %s", w.Code, w.Body.String())
 	}
 }
 
-func TestTradeHandler_InvalidUserID(t *testing.T) {
+// TestTradeRoutes_RequireAuth replaces the old invalid-user_id test: the
+// user is no longer in the path, so the only way in is a valid token.
+func TestTradeRoutes_RequireAuth(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodPost, "/api/users/0/trades", `{"amount": 10000}`)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400, body = %s", w.Code, w.Body.String())
+	routes := []struct{ method, path, body string }{
+		{http.MethodPost, "/api/trades", `{"amount": 10000}`},
+		{http.MethodGet, "/api/trades/1", ""},
+		{http.MethodGet, "/api/trades", ""},
+	}
+	for _, r := range routes {
+		t.Run(r.method+" "+r.path, func(t *testing.T) {
+			w := doRequest(server, r.method, r.path, r.body)
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("status = %d, want 401, body = %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
@@ -152,7 +182,7 @@ func TestTradeHandler_InvalidUserID(t *testing.T) {
 func TestTradeHandler_HaltedOnlyPortfolio(t *testing.T) {
 	calc := &fakeCalcClient{resp: &calcv1.CalculateResponse{Orders: []*calcv1.Order{}}}
 	server := testServerWithCalc(t, calc)
-	w := doRequest(server, http.MethodPost, "/api/users/2/trades", `{"amount": 10000}`)
+	w := doRequestAs(t, server, 2, http.MethodPost, "/api/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
@@ -172,7 +202,7 @@ func TestTradeHandler_HaltedOnlyPortfolio(t *testing.T) {
 // fixture that could drift from what CreateTrade actually produces.
 func createTestTrade(t *testing.T, server *Server) TradeResponse {
 	t.Helper()
-	w := doRequest(server, http.MethodPost, "/api/users/1/trades", `{"amount": 10000}`)
+	w := doRequestAs(t, server, 1, http.MethodPost, "/api/trades", `{"amount": 10000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("seeding trade: status = %d, body = %s", w.Code, w.Body.String())
 	}
@@ -191,7 +221,7 @@ func TestGetTradeHandler_HappyPath(t *testing.T) {
 	server := testServerWithCalc(t, calc)
 	created := createTestTrade(t, server)
 
-	w := doRequest(server, http.MethodGet, fmt.Sprintf("/api/users/1/trades/%d", created.ID), "")
+	w := doRequestAs(t, server, 1, http.MethodGet, fmt.Sprintf("/api/trades/%d", created.ID), "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
@@ -207,7 +237,7 @@ func TestGetTradeHandler_HappyPath(t *testing.T) {
 
 func TestGetTradeHandler_NotFound(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodGet, "/api/users/1/trades/999999", "")
+	w := doRequestAs(t, server, 1, http.MethodGet, "/api/trades/999999", "")
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404, body = %s", w.Code, w.Body.String())
 	}
@@ -225,7 +255,7 @@ func TestGetTradeHandler_WrongUser(t *testing.T) {
 	server := testServerWithCalc(t, calc)
 	created := createTestTrade(t, server) // owned by user 1
 
-	w := doRequest(server, http.MethodGet, fmt.Sprintf("/api/users/2/trades/%d", created.ID), "")
+	w := doRequestAs(t, server, 2, http.MethodGet, fmt.Sprintf("/api/trades/%d", created.ID), "")
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404, body = %s", w.Code, w.Body.String())
 	}
@@ -239,7 +269,7 @@ func TestGetTradeByUserHandler_HappyPath(t *testing.T) {
 	server := testServerWithCalc(t, calc)
 	createTestTrade(t, server)
 
-	w := doRequest(server, http.MethodGet, "/api/users/1/trades", "")
+	w := doRequestAs(t, server, 1, http.MethodGet, "/api/trades", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
@@ -258,7 +288,7 @@ func TestGetTradeByUserHandler_HappyPath(t *testing.T) {
 
 func TestGetTradeByUserHandler_Empty(t *testing.T) {
 	server := testServer(t)
-	w := doRequest(server, http.MethodGet, "/api/users/999/trades", "")
+	w := doRequestAs(t, server, 999, http.MethodGet, "/api/trades", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body = %s", w.Code, w.Body.String())
 	}
@@ -299,7 +329,8 @@ func TestNewServer_RejectsPortfolioReferencingUnknownTicker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &config.Config{DataSource: "memory", StockPath: stocksPath, PortfolioPath: portfolioPath}
+	// A valid token key, so NewServer fails on the ticker check and not earlier.
+	cfg := &config.Config{DataSource: "memory", StockPath: stocksPath, PortfolioPath: portfolioPath, TokenSymmetricKey: testTokenKeyHex}
 	_, err := NewServer(cfg)
 	if err == nil {
 		t.Fatal("NewServer() error = nil, want an error for a portfolio referencing an unknown ticker")

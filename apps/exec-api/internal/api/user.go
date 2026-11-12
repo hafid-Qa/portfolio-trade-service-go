@@ -1,6 +1,20 @@
 package api
 
-import "time"
+import (
+	"time"
+
+	"app/internal/domain"
+)
+
+// UserRequest's max lengths mirror the users table columns, so oversized
+// input is a 400 here rather than a DB error (500). The password cap bounds
+// the work argon2 does per request.
+type UserRequest struct {
+	FullName string `json:"full_name" binding:"required,max=100"`
+	Username string `json:"username" binding:"required,alphanum,max=50"`
+	Email    string `json:"email" binding:"required,email,max=100"`
+	Password string `json:"password" binding:"required,min=6,max=128"`
+}
 
 type UserResponse struct {
 	ID        int64      `json:"id"`
@@ -10,4 +24,28 @@ type UserResponse struct {
 	LastLogin *time.Time `json:"last_login"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+type loginUserRequest struct {
+	Username string `json:"username" binding:"required,alphanum"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
+type loginResponse struct {
+	AccessToken string `json:"access_token"`
+	Type        string `json:"type"`
+}
+
+// toUserResponse is the only way a user leaves the API: it copies the public
+// fields and never the password hash.
+func toUserResponse(u domain.UserResult) UserResponse {
+	return UserResponse{
+		ID:        u.ID(),
+		FullName:  u.FullName(),
+		Username:  u.UserName(),
+		Email:     u.Email(),
+		LastLogin: u.LastLogin(),
+		CreatedAt: u.CreatedAt(),
+		UpdatedAt: u.UpdatedAt(),
+	}
 }

@@ -6,21 +6,17 @@ import (
 	"app/internal/domain"
 )
 
-// TradeURI and TradeRequest are separate structs, not one, because Gin validates
-// the entire struct passed to each ShouldBind* call: a single struct carrying both
-// uri and json tags would fail validation on whichever half hasn't been bound yet.
-type TradeRequestByUser struct {
-	UserID int64 `uri:"user_id" binding:"required,gte=1"`
-}
-
 type Pagination struct {
 	Page  int64 `form:"page,default=1" binding:"gte=1"`
 	Limit int64 `form:"limit,default=50" binding:"gte=1"`
 }
 
+// GetTradeRequest and TradeRequest are separate structs because Gin validates
+// the entire struct passed to each ShouldBind* call: one struct carrying both
+// uri and json tags would fail validation on whichever half isn't bound yet.
+// The user is never part of the request -- it comes from the access token.
 type GetTradeRequest struct {
-	UserID int64 `uri:"user_id" binding:"required,gte=1"`
-	ID     int64 `uri:"id" binding:"required,gte=1"`
+	ID int64 `uri:"id" binding:"required,gte=1"`
 }
 
 type TradeRequest struct {

@@ -10,15 +10,19 @@ import (
 
 	"app/config"
 	"app/internal/domain"
+	"app/internal/password"
 	"app/internal/queue"
 	"app/internal/repositories/memory"
 	"app/internal/repositories/postgres"
+	redisrepo "app/internal/repositories/redis"
 	"app/internal/sqlc"
+	"app/internal/token"
 
 	calcv1 "proto/gen"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
+	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -31,6 +35,9 @@ type Server struct {
 	router *gin.Engine
 
 	tradeService *domain.TradeService
+	userService  *domain.UserService
+	tokenMaker   token.Maker
+	denylist     token.Denylist
 }
 
 // portfolioCatalog is domain.PortfolioRepository plus All, which is deliberately
@@ -59,11 +66,20 @@ func NewServer(config *config.Config) (*Server, error) {
 // path). Both satisfy the same domain interfaces, so nothing downstream of
 // this switch needs to know which one is in play.
 func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, error) {
+	tokenMaker, err := token.NewPASETOMaker(config.TokenSymmetricKey)
+	if err != nil {
+		return nil, fmt.Errorf("creating token maker: %w", err)
+	}
+
 	var store *sqlc.Store
 	var stockRepo domain.StockRepository
 	var portfolioRepo portfolioCatalog
 	var tradeRepo domain.TradeRepository
 	var tradeProducer domain.TradeProducer
+	// userRepo stays nil for DataSource "memory": there is no in-memory user
+	// store, so auth endpoints only work against postgres.
+	var userRepo domain.UserRepository
+	var denylist token.Denylist
 
 	switch config.DataSource {
 	case "memory":
@@ -77,6 +93,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		}
 		stockRepo, portfolioRepo, tradeRepo = memStockRepo, memPortfolioRepo, memory.NewTradeRepo()
 		tradeProducer = memory.NewTradeProducer()
+		denylist = memory.NewTokenDenylist()
 		if err := validateReferentialIntegrity(context.Background(), stockRepo, portfolioRepo); err != nil {
 			return nil, err
 		}
@@ -87,6 +104,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		}
 		store = sqlc.NewStore(conn)
 		stockRepo, portfolioRepo, tradeRepo = postgres.NewStockRepo(*store), postgres.NewPortfolioRepo(*store), postgres.NewTradeRepo(*store)
+		userRepo = postgres.NewUserRepo(*store)
 
 		asynqClient := asynq.NewClient(asynq.RedisClientOpt{
 			Addr:     config.BrokerAddr,
@@ -94,11 +112,19 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 			Password: config.BrokerPassword,
 		})
 		tradeProducer = queue.NewTradeProducer(asynqClient)
+
+		// Same Redis as the job queue: revoked tokens are tiny, self-expiring keys.
+		denylist = redisrepo.NewTokenDenylist(goredis.NewClient(&goredis.Options{
+			Addr:     config.BrokerAddr,
+			Username: config.BrokerUser,
+			Password: config.BrokerPassword,
+		}))
 	}
 
 	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc, tradeProducer)
+	userService := domain.NewUserService(userRepo, password.Argon2Hasher{})
 
-	server := &Server{config: config, tradeService: tradeService}
+	server := &Server{config: config, tradeService: tradeService, userService: userService, tokenMaker: tokenMaker, denylist: denylist}
 
 	server.SetUpRouter()
 	return server, nil
@@ -146,9 +172,16 @@ func (server *Server) SetUpRouter() {
 
 	api := router.Group("/api")
 	api.GET("/health", server.healthHandler)
-	api.POST("/users/:user_id/trades", server.TradeHandler)
-	api.GET("/users/:user_id/trades/:id", server.GetTradeHanlder)
-	api.GET("/users/:user_id/trades", server.GetTradeByUserHanlder)
+	api.POST("/users", server.CreateUserHandler)
+	api.POST("/users/login", server.LoginHandler)
+
+	// Trade routes act on the authenticated user (taken from the token), so
+	// there's no user_id in the path for a client to tamper with.
+	authed := api.Group("", authMiddleware(server.tokenMaker, server.denylist))
+	authed.POST("/users/logout", server.LogoutHandler)
+	authed.POST("/trades", server.TradeHandler)
+	authed.GET("/trades/:id", server.GetTradeHanlder)
+	authed.GET("/trades", server.GetTradeByUserHanlder)
 
 	server.router = router
 }
