@@ -8,7 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
+
+// uniqueViolation is Postgres's SQLSTATE for a UNIQUE constraint failure.
+const uniqueViolation = "23505"
 
 type UserRepo struct {
 	store sqlc.Store
@@ -58,6 +63,10 @@ func (r *UserRepo) Create(ctx context.Context, fullName string, userName string,
 		Email:        email,
 		PasswordHash: passwordHash,
 	})
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == uniqueViolation {
+		return domain.UserResult{}, fmt.Errorf("%w: %s", domain.ErrUserAlreadyExists, pqErr.Constraint)
+	}
 	if err != nil {
 		return domain.UserResult{}, fmt.Errorf("creating user: %w", err)
 	}
