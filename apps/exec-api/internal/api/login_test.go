@@ -38,8 +38,14 @@ func (r *loginUserRepo) UpdateLastLogin(ctx context.Context, id int64) (domain.U
 	return *r.user, nil
 }
 
-func (r *loginUserRepo) Get(context.Context, int64) (domain.UserResult, error) {
-	return domain.UserResult{}, errors.New("not used")
+func (r *loginUserRepo) Get(ctx context.Context, id int64) (domain.UserResult, error) {
+	if r.getErr != nil {
+		return domain.UserResult{}, r.getErr
+	}
+	if r.user == nil || r.user.ID() != id {
+		return domain.UserResult{}, fmt.Errorf("%w: id %d", domain.ErrUserNotFound, id)
+	}
+	return *r.user, nil
 }
 func (r *loginUserRepo) GetByEmail(context.Context, string) (domain.UserResult, error) {
 	return domain.UserResult{}, errors.New("not used")

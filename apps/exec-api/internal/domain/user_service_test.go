@@ -27,7 +27,12 @@ func newFakeUserRepo(users ...UserResult) *fakeUserRepo {
 }
 
 func (r *fakeUserRepo) Get(ctx context.Context, id int64) (UserResult, error) {
-	return UserResult{}, errors.New("not used")
+	for _, u := range r.users {
+		if u.ID() == id {
+			return u, nil
+		}
+	}
+	return UserResult{}, fmt.Errorf("%w: id %d", ErrUserNotFound, id)
 }
 
 func (r *fakeUserRepo) GetByUsername(ctx context.Context, username string) (UserResult, error) {
@@ -198,5 +203,21 @@ func TestUserService_Login_RepoErrorIsNotInvalidCredentials(t *testing.T) {
 	}
 	if errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Login() error = %v, must not be ErrInvalidCredentials", err)
+	}
+}
+
+func TestUserService_GetUser(t *testing.T) {
+	svc := NewUserService(newFakeUserRepo(alice()), &fakeHasher{})
+
+	user, err := svc.GetUser(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("GetUser() error = %v", err)
+	}
+	if user.UserName() != "alice" {
+		t.Errorf("UserName() = %q, want alice", user.UserName())
+	}
+
+	if _, err := svc.GetUser(context.Background(), 999); !errors.Is(err, ErrUserNotFound) {
+		t.Errorf("GetUser(999) error = %v, want ErrUserNotFound", err)
 	}
 }
