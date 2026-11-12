@@ -49,8 +49,20 @@ docker compose up
 The API serves on `http://localhost:${API_EXT_PORT}` (`8000` by default, see `.env`).
 `calc` isn't meant to be called directly by a client — `exec-api` is the only consumer.
 
+Create a user, then log in to get an access token (trade routes act on the user
+in the token, so there's no user ID in their paths):
+
 ```bash
-curl -s -X POST localhost:8000/api/users/1/trade \
+curl -s -X POST localhost:8000/api/users \
+  -H 'Content-Type: application/json' \
+  -d '{"full_name":"Alice","username":"alice","email":"alice@example.com","password":"s3cret!"}'
+
+TOKEN=$(curl -s -X POST localhost:8000/api/users/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"s3cret!"}' | jq -r .access_token)
+
+curl -s -X POST localhost:8000/api/trades \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"amount":10000}'
 ```
@@ -70,6 +82,9 @@ curl -s -X POST localhost:8000/api/users/1/trade \
 }
 ```
 
+Log out with `POST /api/users/logout` (same `Authorization` header): the token is
+rejected from then on, even before it expires.
+
 Interactive docs at `http://localhost:8000/swagger/index.html`, regenerated
 automatically on every `air` rebuild.
 
@@ -77,7 +92,7 @@ automatically on every `air` rebuild.
 `go run ./cmd/worker`). Every created trade is enqueued onto `broker` right after
 it's persisted; `consumer` picks it up and advances its status from `pending` to
 `executing` to `completed`/`failed` a second later — poll
-`GET /api/users/{user_id}/trades/{id}` to watch it transition.
+`GET /api/trades/{id}` to watch it transition.
 
 ### Database setup
 
