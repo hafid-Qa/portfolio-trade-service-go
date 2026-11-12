@@ -118,3 +118,10 @@ func decode(encodedHash string) (params, []byte, []byte, error) {
 
 	return p, salt, key, nil
 }
+
+// Argon2Hasher adapts Hash/Verify to the domain.PasswordHasher interface.
+type Argon2Hasher struct{}
+
+func (Argon2Hasher) Hash(plain string) (string, error) { return Hash(plain) }
+
+func (Argon2Hasher) Verify(hash, plain string) error { return Verify(hash, plain) }
