@@ -185,6 +185,31 @@ func (server *Server) CreateUserHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, toUserResponse(user))
 }
 
+// @Summary Current user
+// @Description Returns the profile of the user the access token belongs to.
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} UserResponse
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/me [get]
+func (server *Server) GetMeHandler(c *gin.Context) {
+	user, err := server.userService.GetUser(c.Request.Context(), authPayload(c).UserID)
+	if err != nil {
+		// A valid token for a user that no longer exists (deleted since login)
+		// is treated like any other bad token.
+		if errors.Is(err, domain.ErrUserNotFound) {
+			c.JSON(http.StatusUnauthorized, errorResponse(errUnauthorized))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+
+	c.JSON(http.StatusOK, toUserResponse(user))
+}
+
 var (
 	errUserAlreadyExists = errors.New("username or email already taken")
 

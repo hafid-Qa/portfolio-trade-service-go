@@ -59,3 +59,8 @@ func (s *UserService) Login(ctx context.Context, username, plainPassword string)
 
 	return s.userRepo.UpdateLastLogin(ctx, user.ID())
 }
+
+// GetUser returns the user with this ID, or an error matching ErrUserNotFound.
+func (s *UserService) GetUser(ctx context.Context, id int64) (UserResult, error) {
+	return s.userRepo.Get(ctx, id)
+}

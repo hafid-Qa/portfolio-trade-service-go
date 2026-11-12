@@ -178,6 +178,7 @@ func (server *Server) SetUpRouter() {
 	// Trade routes act on the authenticated user (taken from the token), so
 	// there's no user_id in the path for a client to tamper with.
 	authed := api.Group("", authMiddleware(server.tokenMaker, server.denylist))
+	authed.GET("/users/me", server.GetMeHandler)
 	authed.POST("/users/logout", server.LogoutHandler)
 	authed.POST("/trades", server.TradeHandler)
 	authed.GET("/trades/:id", server.GetTradeHanlder)
