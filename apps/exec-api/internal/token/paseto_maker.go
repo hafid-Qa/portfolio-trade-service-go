@@ -15,9 +15,6 @@ const (
 	accessAudience = "access"
 )
 
-// Compile-time check that PASETOMaker satisfies Maker.
-var _ Maker = (*PASETOMaker)(nil)
-
 type PASETOMaker struct {
 	symmetricKey paseto.V4SymmetricKey
 	parser       paseto.Parser
@@ -43,10 +40,10 @@ func NewPASETOMaker(symmetricKeyHex string) (*PASETOMaker, error) {
 	return &PASETOMaker{symmetricKey: key, parser: parser}, nil
 }
 
-func (maker *PASETOMaker) CreateToken(userID int64, duration time.Duration) (string, *Payload, error) {
+func (maker *PASETOMaker) CreateToken(userID int64, duration time.Duration) (string, error) {
 	payload, err := NewPayload(userID, duration)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	t := paseto.NewToken()
@@ -58,7 +55,7 @@ func (maker *PASETOMaker) CreateToken(userID int64, duration time.Duration) (str
 	t.SetNotBefore(payload.IssuedAt)
 	t.SetExpiration(payload.ExpiredAt)
 
-	return t.V4Encrypt(maker.symmetricKey, nil), payload, nil
+	return t.V4Encrypt(maker.symmetricKey, nil), nil
 }
 
 func (maker *PASETOMaker) VerifyToken(token string) (*Payload, error) {

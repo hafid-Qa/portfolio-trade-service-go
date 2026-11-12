@@ -40,8 +40,9 @@ func TestNewPASETOMaker_InvalidKey(t *testing.T) {
 func TestPASETOMaker_CreateAndVerify(t *testing.T) {
 	maker := newTestMaker(t, testKeyHex)
 	duration := time.Minute
+	before := time.Now().Truncate(time.Second)
 
-	tok, created, err := maker.CreateToken(42, duration)
+	tok, err := maker.CreateToken(42, duration)
 	if err != nil {
 		t.Fatalf("CreateToken: %v", err)
 	}
@@ -53,22 +54,26 @@ func TestPASETOMaker_CreateAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("VerifyToken: %v", err)
 	}
-	if got.ID != created.ID || got.UserID != 42 {
-		t.Errorf("verified payload %+v does not match created %+v", got, created)
+	if got.UserID != 42 {
+		t.Errorf("user_id = %d, want 42", got.UserID)
 	}
-	if !got.ExpiredAt.Equal(created.ExpiredAt.Truncate(time.Second)) {
-		t.Errorf("expired_at = %v, want %v", got.ExpiredAt, created.ExpiredAt)
+	if got.ID.String() == "00000000-0000-0000-0000-000000000000" {
+		t.Error("id is the zero UUID, want a random token ID")
+	}
+	// Claims are stored at second precision, hence the truncated bounds.
+	if got.ExpiredAt.Before(before.Add(duration)) || got.ExpiredAt.After(time.Now().Add(duration)) {
+		t.Errorf("expired_at = %v, want ~%v", got.ExpiredAt, before.Add(duration))
 	}
 }
 
 func TestPASETOMaker_InvalidToken(t *testing.T) {
 	maker := newTestMaker(t, testKeyHex)
 
-	wrongKeyTok, _, err := newTestMaker(t, otherKeyHex).CreateToken(42, time.Minute)
+	wrongKeyTok, err := newTestMaker(t, otherKeyHex).CreateToken(42, time.Minute)
 	if err != nil {
 		t.Fatalf("CreateToken: %v", err)
 	}
-	expiredTok, _, err := maker.CreateToken(42, -time.Minute)
+	expiredTok, err := maker.CreateToken(42, -time.Minute)
 	if err != nil {
 		t.Fatalf("CreateToken: %v", err)
 	}
