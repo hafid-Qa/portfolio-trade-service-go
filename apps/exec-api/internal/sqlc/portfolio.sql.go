@@ -92,3 +92,29 @@ func (q *Queries) ListPortfolios(ctx context.Context) ([]Portfolio, error) {
 	}
 	return items, nil
 }
+
+const upsertPortfolio = `-- name: UpsertPortfolio :one
+INSERT INTO portfolios (user_id, target_portfolio)
+VALUES ($1, $2)
+ON CONFLICT (user_id) DO UPDATE
+SET target_portfolio = EXCLUDED.target_portfolio, updated_at = NOW()
+RETURNING id, user_id, target_portfolio, created_at, updated_at
+`
+
+type UpsertPortfolioParams struct {
+	UserID          int32           `json:"user_id"`
+	TargetPortfolio json.RawMessage `json:"target_portfolio"`
+}
+
+func (q *Queries) UpsertPortfolio(ctx context.Context, arg UpsertPortfolioParams) (Portfolio, error) {
+	row := q.db.QueryRowContext(ctx, upsertPortfolio, arg.UserID, arg.TargetPortfolio)
+	var i Portfolio
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TargetPortfolio,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

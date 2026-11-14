@@ -32,6 +32,7 @@ type Querier interface {
 	UpdateUserLastLogin(ctx context.Context, id int32) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	UpsertPortfolio(ctx context.Context, arg UpsertPortfolioParams) (Portfolio, error)
 	UpsertStocks(ctx context.Context, arg UpsertStocksParams) ([]Stock, error)
 }
 
