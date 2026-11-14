@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,8 +104,8 @@ func TestLoginHandler_ReturnsUsableToken(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decoding body: %v", err)
 	}
-	if resp.Type != "Bearer" {
-		t.Errorf("type = %q, want Bearer", resp.Type)
+	if resp.TokenType != "Bearer" {
+		t.Errorf("token_type = %q, want Bearer", resp.TokenType)
 	}
 
 	// The token must be accepted by the same maker the auth middleware uses,
@@ -151,5 +153,60 @@ func TestLoginHandler_RepoFailureIs500(t *testing.T) {
 	}
 	if got, want := w.Body.String(), `{"error":"internal server error"}`; got != want {
 		t.Errorf("body = %s, want %s (no internal detail)", got, want)
+	}
+}
+
+// postLoginForm sends the request the way Swagger UI's OAuth2 password flow does.
+func postLoginForm(router *gin.Engine, form url.Values) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestLoginHandler_OAuth2PasswordForm(t *testing.T) {
+	router, server := loginTestRouter(t, seededLoginRepo(t))
+
+	w := postLoginForm(router, url.Values{
+		"grant_type": {"password"},
+		"username":   {"alice"},
+		"password":   {"s3cret!"},
+		"client_id":  {""},
+	})
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", w.Code, w.Body)
+	}
+
+	// Swagger UI reads exactly these two OAuth2 fields.
+	var resp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding body: %v", err)
+	}
+	if resp["token_type"] != "Bearer" {
+		t.Errorf("token_type = %q, want Bearer", resp["token_type"])
+	}
+	payload, err := server.tokenMaker.VerifyToken(resp["access_token"])
+	if err != nil {
+		t.Fatalf("VerifyToken(access_token) = %v", err)
+	}
+	if payload.UserID != 7 {
+		t.Errorf("token user_id = %d, want 7", payload.UserID)
+	}
+}
+
+func TestLoginHandler_OAuth2PasswordForm_WrongPassword(t *testing.T) {
+	router, _ := loginTestRouter(t, seededLoginRepo(t))
+
+	w := postLoginForm(router, url.Values{
+		"grant_type": {"password"},
+		"username":   {"alice"},
+		"password":   {"wrong-password"},
+	})
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	if got, want := w.Body.String(), `{"error":"invalid credentials"}`; got != want {
+		t.Errorf("body = %s, want %s", got, want)
 	}
 }
