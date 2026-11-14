@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"app/config"
 	"app/internal/domain"
 	"app/internal/password"
+	"app/internal/repositories/memory"
 
 	"github.com/gin-gonic/gin"
 )
@@ -65,9 +67,10 @@ func (r *loginUserRepo) UpdatePassword(context.Context, int64, string) (domain.U
 func loginTestRouter(t *testing.T, repo *loginUserRepo) (*gin.Engine, *Server) {
 	t.Helper()
 	server := &Server{
-		config:      &config.Config{AccessTokenDuration: time.Minute},
-		userService: domain.NewUserService(repo, password.Argon2Hasher{}),
-		tokenMaker:  newTestTokenMaker(t),
+		config:       &config.Config{AccessTokenDuration: time.Minute},
+		userService:  domain.NewUserService(repo, password.Argon2Hasher{}),
+		tokenMaker:   newTestTokenMaker(t),
+		loginLimiter: memory.NewLoginLimiter(testLoginMaxAttempts, testLoginPeriod),
 	}
 	router := gin.New()
 	router.POST("/login", server.LoginHandler)
@@ -208,5 +211,91 @@ func TestLoginHandler_OAuth2PasswordForm_WrongPassword(t *testing.T) {
 	}
 	if got, want := w.Body.String(), `{"error":"invalid credentials"}`; got != want {
 		t.Errorf("body = %s, want %s", got, want)
+	}
+}
+
+// --- login rate limiting
+
+// The limits the test servers use (production values come from config).
+const (
+	testLoginMaxAttempts = 5
+	testLoginPeriod      = 15 * time.Minute
+)
+
+// failingLimiter simulates Redis being unreachable.
+type failingLimiter struct{}
+
+func (failingLimiter) Allow(context.Context, string) (bool, time.Duration, error) {
+	return false, 0, errors.New("redis down")
+}
+func (failingLimiter) Reset(context.Context, string) error { return nil }
+
+func TestLoginHandler_RateLimitedAfterMaxFailures(t *testing.T) {
+	router, _ := loginTestRouter(t, seededLoginRepo(t))
+	wrong := `{"username":"alice","password":"wrong-password"}`
+
+	for i := range testLoginMaxAttempts {
+		if w := postLogin(router, wrong); w.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: status = %d, want 401", i+1, w.Code)
+		}
+	}
+
+	// Over the limit: refused even with the CORRECT password.
+	w := postLogin(router, `{"username":"alice","password":"s3cret!"}`)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429", w.Code)
+	}
+	if got, want := w.Body.String(), `{"error":"too many login attempts, try again later"}`; got != want {
+		t.Errorf("body = %s, want %s", got, want)
+	}
+	retry, err := strconv.Atoi(w.Header().Get("Retry-After"))
+	if err != nil || retry <= 0 || retry > int(testLoginPeriod.Seconds()) {
+		t.Errorf("Retry-After = %q, want seconds in (0, %d]", w.Header().Get("Retry-After"), int(testLoginPeriod.Seconds()))
+	}
+}
+
+// A successful login resets the count, so only consecutive failures add up.
+func TestLoginHandler_SuccessResetsAttempts(t *testing.T) {
+	router, _ := loginTestRouter(t, seededLoginRepo(t))
+	wrong := `{"username":"alice","password":"wrong-password"}`
+
+	for range testLoginMaxAttempts - 1 {
+		postLogin(router, wrong)
+	}
+	if w := postLogin(router, `{"username":"alice","password":"s3cret!"}`); w.Code != http.StatusOK {
+		t.Fatalf("login before limit: status = %d, want 200", w.Code)
+	}
+	for i := range testLoginMaxAttempts - 1 {
+		if w := postLogin(router, wrong); w.Code != http.StatusUnauthorized {
+			t.Fatalf("failure %d after reset: status = %d, want 401 (count should restart)", i+1, w.Code)
+		}
+	}
+}
+
+// Unknown usernames are limited exactly like real ones, so the 429 can't be
+// used to tell which accounts exist; and the key ignores case.
+func TestLoginHandler_RateLimitIsPerUsername(t *testing.T) {
+	router, _ := loginTestRouter(t, seededLoginRepo(t))
+
+	for range testLoginMaxAttempts {
+		postLogin(router, `{"username":"mallory","password":"whatever1"}`)
+	}
+	if w := postLogin(router, `{"username":"MALLORY","password":"whatever1"}`); w.Code != http.StatusTooManyRequests {
+		t.Errorf("unknown user over limit (different case): status = %d, want 429", w.Code)
+	}
+	// Another username is unaffected.
+	if w := postLogin(router, `{"username":"alice","password":"s3cret!"}`); w.Code != http.StatusOK {
+		t.Errorf("other user: status = %d, want 200", w.Code)
+	}
+}
+
+// If the limiter can't be checked, login is refused (fail closed).
+func TestLoginHandler_LimiterUnavailableIs500(t *testing.T) {
+	router, server := loginTestRouter(t, seededLoginRepo(t))
+	server.loginLimiter = failingLimiter{}
+
+	w := postLogin(router, `{"username":"alice","password":"s3cret!"}`)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", w.Code)
 	}
 }

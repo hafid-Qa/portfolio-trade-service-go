@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"app/internal/token"
 
@@ -57,4 +59,13 @@ func authMiddleware(tokenMaker token.Maker, denylist token.Denylist) gin.Handler
 // middleware, which is a programming error rather than a client error.
 func authPayload(c *gin.Context) *token.Payload {
 	return c.MustGet(authorizationPayloadKey).(*token.Payload)
+}
+
+// loginLimiter caps login attempts per username. Implemented by
+// redis.LoginLimiter (shared, persistent) and memory.LoginLimiter.
+type loginLimiter interface {
+	// Allow records one attempt for key; false means it's over the limit,
+	// with retryAfter until the next attempt is allowed.
+	Allow(ctx context.Context, key string) (allowed bool, retryAfter time.Duration, err error)
+	Reset(ctx context.Context, key string) error
 }

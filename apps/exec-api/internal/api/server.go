@@ -40,6 +40,7 @@ type Server struct {
 	stockService     *domain.StockService
 	tokenMaker       token.Maker
 	denylist         token.Denylist
+	loginLimiter     loginLimiter
 }
 
 // portfolioCatalog is domain.PortfolioRepository plus All, which is deliberately
@@ -82,6 +83,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 	// store, so auth endpoints only work against postgres.
 	var userRepo domain.UserRepository
 	var denylist token.Denylist
+	var limiter loginLimiter
 
 	switch config.DataSource {
 	case "memory":
@@ -96,6 +98,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		stockRepo, portfolioRepo, tradeRepo = memStockRepo, memPortfolioRepo, memory.NewTradeRepo()
 		tradeProducer = memory.NewTradeProducer()
 		denylist = memory.NewTokenDenylist()
+		limiter = memory.NewLoginLimiter(config.LoginMaxAttempts, config.LoginPeriod)
 		if err := validateReferentialIntegrity(context.Background(), stockRepo, portfolioRepo); err != nil {
 			return nil, err
 		}
@@ -115,12 +118,15 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 		})
 		tradeProducer = queue.NewTradeProducer(asynqClient)
 
-		// Same Redis as the job queue: revoked tokens are tiny, self-expiring keys.
-		denylist = redisrepo.NewTokenDenylist(goredis.NewClient(&goredis.Options{
+		// Same Redis as the job queue: revoked tokens and login-attempt
+		// counters are tiny, self-expiring keys.
+		redisClient := goredis.NewClient(&goredis.Options{
 			Addr:     config.BrokerAddr,
 			Username: config.BrokerUser,
 			Password: config.BrokerPassword,
-		}))
+		})
+		denylist = redisrepo.NewTokenDenylist(redisClient)
+		limiter = redisrepo.NewLoginLimiter(redisClient, config.LoginMaxAttempts, config.LoginPeriod)
 	}
 
 	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc, tradeProducer)
@@ -128,7 +134,7 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 	portfolioService := domain.NewPortfolioService(stockRepo, portfolioRepo)
 	stockService := domain.NewStockService(stockRepo)
 
-	server := &Server{config: config, tradeService: tradeService, userService: userService, portfolioService: portfolioService, stockService: stockService, tokenMaker: tokenMaker, denylist: denylist}
+	server := &Server{config: config, tradeService: tradeService, userService: userService, portfolioService: portfolioService, stockService: stockService, tokenMaker: tokenMaker, denylist: denylist, loginLimiter: limiter}
 
 	server.SetUpRouter()
 	return server, nil

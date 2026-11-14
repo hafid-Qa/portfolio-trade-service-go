@@ -66,10 +66,11 @@ func accountTestRouter(t *testing.T) (*gin.Engine, *Server, *accountUserRepo) {
 	t.Helper()
 	repo := &accountUserRepo{loginUserRepo: *seededLoginRepo(t)} // user 7 alice / "s3cret!"
 	server := &Server{
-		config:      &config.Config{AccessTokenDuration: time.Minute},
-		userService: domain.NewUserService(repo, password.Argon2Hasher{}),
-		tokenMaker:  newTestTokenMaker(t),
-		denylist:    memory.NewTokenDenylist(),
+		config:       &config.Config{AccessTokenDuration: time.Minute},
+		userService:  domain.NewUserService(repo, password.Argon2Hasher{}),
+		tokenMaker:   newTestTokenMaker(t),
+		denylist:     memory.NewTokenDenylist(),
+		loginLimiter: memory.NewLoginLimiter(testLoginMaxAttempts, testLoginPeriod),
 	}
 	router := gin.New()
 	router.POST("/login", server.LoginHandler)

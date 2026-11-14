@@ -2,7 +2,11 @@ package api
 
 import (
 	"errors"
+	"log"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"app/internal/domain"
 
@@ -290,8 +294,9 @@ func (server *Server) ChangePasswordHandler(c *gin.Context) {
 }
 
 var (
-	errNothingToUpdate   = errors.New("no fields to update")
-	errUserAlreadyExists = errors.New("username or email already taken")
+	errNothingToUpdate      = errors.New("no fields to update")
+	errTooManyLoginAttempts = errors.New("too many login attempts, try again later")
+	errUserAlreadyExists    = errors.New("username or email already taken")
 
 	// errInvalidCredentials is the only error login reports to the client:
 	// a malformed request, unknown user and wrong password all look the same.
@@ -308,6 +313,7 @@ var (
 // @Param request body loginUserRequest true "Credentials"
 // @Success 200 {object} loginResponse
 // @Failure 401 {object} map[string]string
+// @Failure 429 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/users/login [post]
 func (server *Server) LoginHandler(c *gin.Context) {
@@ -315,6 +321,21 @@ func (server *Server) LoginHandler(c *gin.Context) {
 	// ShouldBind picks JSON or form binding from the Content-Type.
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse(errInvalidCredentials))
+		return
+	}
+
+	// Keyed by the lowercased username (usernames are stored lowercased), and
+	// applied whether or not the user exists, so a 429 reveals nothing either.
+	limitKey := strings.ToLower(req.Username)
+	allowed, retryAfter, err := server.loginLimiter.Allow(c.Request.Context(), limitKey)
+	if err != nil {
+		// Fail closed, like the token denylist: no limiter, no login.
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+	if !allowed {
+		c.Header("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
+		c.JSON(http.StatusTooManyRequests, errorResponse(errTooManyLoginAttempts))
 		return
 	}
 
@@ -332,6 +353,12 @@ func (server *Server) LoginHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
 		return
+	}
+
+	// Successful login: start counting failures from zero again. Not fatal if
+	// it fails -- the user is authenticated; the counter just expires on its own.
+	if err := server.loginLimiter.Reset(c.Request.Context(), limitKey); err != nil {
+		log.Printf("login: %v", err)
 	}
 
 	c.JSON(http.StatusOK, loginResponse{
