@@ -108,3 +108,42 @@ func TestPortfolioRepo_All_ReturnsACopy(t *testing.T) {
 		t.Error("mutating the map returned by All() affected the repo's internal state")
 	}
 }
+
+func mustPortfolio(t *testing.T, userID int64, weights map[domain.Symbol]int) domain.Portfolio {
+	t.Helper()
+	p, err := domain.NewPortfolio(userID, weights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestPortfolioRepo_Upsert_CreatesAndReplaces(t *testing.T) {
+	ctx := context.Background()
+	repo, err := NewPortfolioRepo(writeFile(t, "portfolio.yml", `
+- user_id: 1
+  target_portfolio:
+    A: 40
+    B: 60
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// New user: created.
+	if _, err := repo.Upsert(ctx, mustPortfolio(t, 2, map[domain.Symbol]int{"C": 100})); err != nil {
+		t.Fatalf("Upsert(new) error = %v", err)
+	}
+	if p, err := repo.Get(ctx, 2); err != nil || p.TargetPortfolio()["C"] != 100 {
+		t.Errorf("Get(2) = %v, %v; want C:100", p.TargetPortfolio(), err)
+	}
+
+	// Existing user: replaced, not merged.
+	if _, err := repo.Upsert(ctx, mustPortfolio(t, 1, map[domain.Symbol]int{"A": 100})); err != nil {
+		t.Fatalf("Upsert(existing) error = %v", err)
+	}
+	p, _ := repo.Get(ctx, 1)
+	if w := p.TargetPortfolio(); len(w) != 1 || w["A"] != 100 {
+		t.Errorf("Get(1) = %v, want only A:100", w)
+	}
+}

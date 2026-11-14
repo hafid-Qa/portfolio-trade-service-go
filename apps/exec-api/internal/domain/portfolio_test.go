@@ -107,3 +107,23 @@ func TestSumTo100Percent(t *testing.T) {
 		})
 	}
 }
+
+// Summing to 100 isn't enough: {"A":150,"B":-50} does too.
+func TestNewPortfolio_RejectsWeightsOutOfRange(t *testing.T) {
+	tests := []struct {
+		name    string
+		weights map[Symbol]int
+	}{
+		{"negative weight", map[Symbol]int{"A": 150, "B": -50}},
+		{"zero weight", map[Symbol]int{"A": 100, "B": 0}},
+		{"over 100", map[Symbol]int{"A": 101}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewPortfolio(1, tt.weights)
+			if !errors.Is(err, ErrInvalidPortfolio) {
+				t.Errorf("NewPortfolio(%v) error = %v, want ErrInvalidPortfolio", tt.weights, err)
+			}
+		})
+	}
+}

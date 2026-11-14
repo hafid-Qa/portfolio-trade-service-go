@@ -67,3 +67,68 @@ func TestPortfolioRepo_All(t *testing.T) {
 		t.Errorf("TargetPortfolio() = %v, want C:100", p.TargetPortfolio())
 	}
 }
+
+func TestPortfolioRepo_Upsert(t *testing.T) {
+	ctx := context.Background()
+	const userID = 90010
+	seedUser(t, userID)
+	t.Cleanup(func() { testStore.DeletePortfolio(ctx, userID) })
+	repo := NewPortfolioRepo(testStore)
+
+	first, err := domain.NewPortfolio(userID, map[domain.Symbol]int{"A": 40, "B": 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Upsert(ctx, first); err != nil {
+		t.Fatalf("Upsert(create) error = %v", err)
+	}
+
+	second, err := domain.NewPortfolio(userID, map[domain.Symbol]int{"C": 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := repo.Upsert(ctx, second)
+	if err != nil {
+		t.Fatalf("Upsert(replace) error = %v", err)
+	}
+	if w := saved.TargetPortfolio(); len(w) != 1 || w["C"] != 100 {
+		t.Errorf("Upsert(replace) = %v, want only C:100", w)
+	}
+
+	// Still exactly one row for the user (the UNIQUE constraint + ON CONFLICT).
+	rows, err := testStore.ListPortfolios(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, r := range rows {
+		if r.UserID == userID {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("portfolio rows for user = %d, want 1", count)
+	}
+}
+
+func TestPortfolioRepo_Upsert_UnknownUser(t *testing.T) {
+	p, err := domain.NewPortfolio(999_999, map[domain.Symbol]int{"A": 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewPortfolioRepo(testStore).Upsert(context.Background(), p); err == nil {
+		t.Fatal("Upsert() error = nil, want foreign key violation for a non-existent user")
+	}
+}
+
+// The UNIQUE constraint itself, independent of the upsert query.
+func TestPortfolios_UniquePerUser(t *testing.T) {
+	seedPortfolio(t, 90011, map[string]int{"A": 100})
+	_, err := testStore.CreatePortfolio(context.Background(), sqlc.CreatePortfolioParams{
+		UserID:          90011,
+		TargetPortfolio: []byte(`{"B": 100}`),
+	})
+	if err == nil {
+		t.Fatal("second CreatePortfolio for the same user succeeded, want unique violation")
+	}
+}
