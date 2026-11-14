@@ -210,7 +210,87 @@ func (server *Server) GetMeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, toUserResponse(user))
 }
 
+// @Summary Update my profile
+// @Description Partial update of the authenticated user's profile: only the
+// @Description fields present are changed. Username and email stay unique.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security OAuth2Password
+// @Param request body UpdateUserRequest true "Fields to change"
+// @Success 200 {object} UserResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/me [patch]
+func (server *Server) UpdateMeHandler(c *gin.Context) {
+	var req UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	if req.FullName == nil && req.Username == nil && req.Email == nil {
+		c.JSON(http.StatusBadRequest, errorResponse(errNothingToUpdate))
+		return
+	}
+
+	user, err := server.userService.UpdateProfile(c.Request.Context(), authPayload(c).UserID, req.FullName, req.Username, req.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrUserAlreadyExists):
+			c.JSON(http.StatusConflict, errorResponse(errUserAlreadyExists))
+		case errors.Is(err, domain.ErrUserNotFound):
+			c.JSON(http.StatusUnauthorized, errorResponse(errUnauthorized))
+		default:
+			c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, toUserResponse(user))
+}
+
+// @Summary Change my password
+// @Description Requires the current password. A wrong current password gets
+// @Description the same generic "invalid credentials" as login.
+// @Tags Users
+// @Accept json
+// @Security OAuth2Password
+// @Param request body ChangePasswordRequest true "Current and new password"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/me/password [put]
+func (server *Server) ChangePasswordHandler(c *gin.Context) {
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	err := server.userService.ChangePassword(c.Request.Context(), authPayload(c).UserID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidCredentials):
+			// 403, not 401: the token is fine, the re-authentication failed.
+			// A 401 would make clients think they were logged out.
+			c.JSON(http.StatusForbidden, errorResponse(errInvalidCredentials))
+		case errors.Is(err, domain.ErrUserNotFound):
+			c.JSON(http.StatusUnauthorized, errorResponse(errUnauthorized))
+		default:
+			c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		}
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 var (
+	errNothingToUpdate   = errors.New("no fields to update")
 	errUserAlreadyExists = errors.New("username or email already taken")
 
 	// errInvalidCredentials is the only error login reports to the client:

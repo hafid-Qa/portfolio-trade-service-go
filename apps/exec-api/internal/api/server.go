@@ -183,6 +183,8 @@ func (server *Server) SetUpRouter() {
 	// there's no user_id in the path for a client to tamper with.
 	authed := api.Group("", authMiddleware(server.tokenMaker, server.denylist))
 	authed.GET("/users/me", server.GetMeHandler)
+	authed.PATCH("/users/me", server.UpdateMeHandler)
+	authed.PUT("/users/me/password", server.ChangePasswordHandler)
 	authed.POST("/users/logout", server.LogoutHandler)
 	authed.GET("/stocks", server.ListStocksHandler)
 	authed.PUT("/portfolios", server.SetPortfolioHandler)

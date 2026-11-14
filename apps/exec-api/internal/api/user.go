@@ -16,6 +16,20 @@ type UserRequest struct {
 	Password string `json:"password" binding:"required,min=6,max=128"`
 }
 
+// UpdateUserRequest is a partial update: an absent field (nil) is left
+// unchanged. omitnil skips validation only for absent fields, so an explicit
+// "" is still rejected rather than blanking the field.
+type UpdateUserRequest struct {
+	FullName *string `json:"full_name" binding:"omitnil,min=1,max=100"`
+	Username *string `json:"username" binding:"omitnil,alphanum,max=50"`
+	Email    *string `json:"email" binding:"omitnil,email,max=100"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6,max=128"`
+}
+
 type UserResponse struct {
 	ID        int64      `json:"id"`
 	FullName  string     `json:"full_name"`
