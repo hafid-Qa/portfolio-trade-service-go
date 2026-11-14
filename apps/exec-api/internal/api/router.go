@@ -291,7 +291,7 @@ func (server *Server) LogoutHandler(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /api/portfolio [put]
+// @Router /api/portfolios [put]
 func (server *Server) SetPortfolioHandler(c *gin.Context) {
 	var req PortfolioRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -333,7 +333,7 @@ func (server *Server) SetPortfolioHandler(c *gin.Context) {
 // @Failure 401 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /api/portfolio [get]
+// @Router /api/portfolios [get]
 func (server *Server) GetPortfolioHandler(c *gin.Context) {
 	p, err := server.portfolioService.GetPortfolio(c.Request.Context(), authPayload(c).UserID)
 	if err != nil {

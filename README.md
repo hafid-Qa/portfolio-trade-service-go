@@ -65,7 +65,7 @@ TOKEN=$(curl -s -X POST localhost:8000/api/users/login \
 curl -s localhost:8000/api/stocks -H "Authorization: Bearer $TOKEN"
 
 # Each user has one target portfolio (percentages, summing to 100); PUT replaces it.
-curl -s -X PUT localhost:8000/api/portfolio \
+curl -s -X PUT localhost:8000/api/portfolios \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"target_portfolio":{"A":40,"B":60}}'
@@ -118,7 +118,7 @@ a single batched query, keyed on `ticker` — safe to run on every container sta
 since re-seeding an already-seeded DB just reaffirms the same rows rather than erroring
 or duplicating them.
 
-Portfolios aren't seeded: each user sets their own with `PUT /api/portfolio` (see
+Portfolios aren't seeded: each user sets their own with `PUT /api/portfolios` (see
 above). `data/portfolio.yml` holds the reference portfolios used by
 `DATA_SOURCE=memory` and the tests.
 

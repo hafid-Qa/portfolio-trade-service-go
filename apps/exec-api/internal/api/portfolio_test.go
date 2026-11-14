@@ -21,7 +21,7 @@ func decodePortfolio(t *testing.T, body []byte) PortfolioResponse {
 // User 1 has A:40 B:60 in the shipped data/portfolio.yml.
 func TestGetPortfolioHandler_Existing(t *testing.T) {
 	server := testServer(t)
-	w := doRequestAs(t, server, 1, http.MethodGet, "/api/portfolio", "")
+	w := doRequestAs(t, server, 1, http.MethodGet, "/api/portfolios", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body = %s", w.Code, w.Body)
 	}
@@ -33,7 +33,7 @@ func TestGetPortfolioHandler_Existing(t *testing.T) {
 
 func TestGetPortfolioHandler_NotFound(t *testing.T) {
 	server := testServer(t)
-	w := doRequestAs(t, server, 500, http.MethodGet, "/api/portfolio", "")
+	w := doRequestAs(t, server, 500, http.MethodGet, "/api/portfolios", "")
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404; body = %s", w.Code, w.Body)
 	}
@@ -43,7 +43,7 @@ func TestGetPortfolioHandler_NotFound(t *testing.T) {
 func TestSetPortfolioHandler_CreateThenReadThenReplace(t *testing.T) {
 	server := testServer(t)
 
-	w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolio", `{"target_portfolio":{"A":30,"B":70}}`)
+	w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolios", `{"target_portfolio":{"A":30,"B":70}}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("PUT status = %d, want 200; body = %s", w.Code, w.Body)
 	}
@@ -51,7 +51,7 @@ func TestSetPortfolioHandler_CreateThenReadThenReplace(t *testing.T) {
 		t.Errorf("PUT response = %v, want A:30 B:70", got)
 	}
 
-	w = doRequestAs(t, server, 500, http.MethodGet, "/api/portfolio", "")
+	w = doRequestAs(t, server, 500, http.MethodGet, "/api/portfolios", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET status = %d, want 200", w.Code)
 	}
@@ -59,11 +59,11 @@ func TestSetPortfolioHandler_CreateThenReadThenReplace(t *testing.T) {
 		t.Errorf("GET after PUT = %v, want A:30 B:70", got)
 	}
 
-	w = doRequestAs(t, server, 500, http.MethodPut, "/api/portfolio", `{"target_portfolio":{"C":100}}`)
+	w = doRequestAs(t, server, 500, http.MethodPut, "/api/portfolios", `{"target_portfolio":{"C":100}}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("second PUT status = %d, want 200", w.Code)
 	}
-	w = doRequestAs(t, server, 500, http.MethodGet, "/api/portfolio", "")
+	w = doRequestAs(t, server, 500, http.MethodGet, "/api/portfolios", "")
 	if got := decodePortfolio(t, w.Body.Bytes()).TargetPortfolio; len(got) != 1 || got["C"] != 100 {
 		t.Errorf("GET after replace = %v, want only C:100", got)
 	}
@@ -73,10 +73,10 @@ func TestSetPortfolioHandler_CreateThenReadThenReplace(t *testing.T) {
 func TestSetPortfolioHandler_OnlyAffectsTokenOwner(t *testing.T) {
 	server := testServer(t)
 
-	if w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolio", `{"target_portfolio":{"C":100}}`); w.Code != http.StatusOK {
+	if w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolios", `{"target_portfolio":{"C":100}}`); w.Code != http.StatusOK {
 		t.Fatalf("PUT status = %d", w.Code)
 	}
-	w := doRequestAs(t, server, 1, http.MethodGet, "/api/portfolio", "")
+	w := doRequestAs(t, server, 1, http.MethodGet, "/api/portfolios", "")
 	if got := decodePortfolio(t, w.Body.Bytes()).TargetPortfolio; got["A"] != 40 || got["B"] != 60 {
 		t.Errorf("user 1 portfolio = %v, want unchanged A:40 B:60", got)
 	}
@@ -99,7 +99,7 @@ func TestSetPortfolioHandler_Invalid(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			server := testServer(t)
-			w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolio", c.body)
+			w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolios", c.body)
 			if w.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400; body = %s", w.Code, w.Body)
 			}
@@ -107,7 +107,7 @@ func TestSetPortfolioHandler_Invalid(t *testing.T) {
 				t.Errorf("body = %s, want it to mention %q", w.Body, c.errPart)
 			}
 			// Nothing was stored.
-			if w := doRequestAs(t, server, 500, http.MethodGet, "/api/portfolio", ""); w.Code != http.StatusNotFound {
+			if w := doRequestAs(t, server, 500, http.MethodGet, "/api/portfolios", ""); w.Code != http.StatusNotFound {
 				t.Errorf("GET after invalid PUT status = %d, want 404", w.Code)
 			}
 		})
@@ -117,7 +117,7 @@ func TestSetPortfolioHandler_Invalid(t *testing.T) {
 func TestPortfolioRoutes_RequireAuth(t *testing.T) {
 	server := testServer(t)
 	for _, method := range []string{http.MethodGet, http.MethodPut} {
-		w := doRequest(server, method, "/api/portfolio", `{"target_portfolio":{"A":100}}`)
+		w := doRequest(server, method, "/api/portfolios", `{"target_portfolio":{"A":100}}`)
 		if w.Code != http.StatusUnauthorized {
 			t.Errorf("%s status = %d, want 401", method, w.Code)
 		}
@@ -135,7 +135,7 @@ func TestSetPortfolioHandler_EnablesTrading(t *testing.T) {
 	if w := doRequestAs(t, server, 500, http.MethodPost, "/api/trades", `{"amount": 10000}`); w.Code != http.StatusNotFound {
 		t.Fatalf("trade before portfolio: status = %d, want 404", w.Code)
 	}
-	if w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolio", `{"target_portfolio":{"A":100}}`); w.Code != http.StatusOK {
+	if w := doRequestAs(t, server, 500, http.MethodPut, "/api/portfolios", `{"target_portfolio":{"A":100}}`); w.Code != http.StatusOK {
 		t.Fatalf("PUT portfolio: status = %d, want 200; body = %s", w.Code, w.Body)
 	}
 	w := doRequestAs(t, server, 500, http.MethodPost, "/api/trades", `{"amount": 10000}`)
