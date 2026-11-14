@@ -61,6 +61,15 @@ TOKEN=$(curl -s -X POST localhost:8000/api/users/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"alice","password":"s3cret!"}' | jq -r .access_token)
 
+# The tickers a portfolio can use (halted ones have "tradable": false).
+curl -s localhost:8000/api/stocks -H "Authorization: Bearer $TOKEN"
+
+# Each user has one target portfolio (percentages, summing to 100); PUT replaces it.
+curl -s -X PUT localhost:8000/api/portfolio \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"target_portfolio":{"A":40,"B":60}}'
+
 curl -s -X POST localhost:8000/api/trades \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
@@ -109,9 +118,9 @@ a single batched query, keyed on `ticker` — safe to run on every container sta
 since re-seeding an already-seeded DB just reaffirms the same rows rather than erroring
 or duplicating them.
 
-Portfolios are still manual, though: nothing seeds `data/portfolio.yml` yet. Insert via
-`psql` or `sqlc`'s generated `CreatePortfolio` — see `data/portfolio.yml` for the
-values.
+Portfolios aren't seeded: each user sets their own with `PUT /api/portfolio` (see
+above). `data/portfolio.yml` holds the reference portfolios used by
+`DATA_SOURCE=memory` and the tests.
 
 ### `memory` fallback
 
