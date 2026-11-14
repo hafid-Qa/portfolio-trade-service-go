@@ -63,9 +63,8 @@ func (r *UserRepo) Create(ctx context.Context, fullName string, userName string,
 		Email:        email,
 		PasswordHash: passwordHash,
 	})
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) && pqErr.Code == uniqueViolation {
-		return domain.UserResult{}, fmt.Errorf("%w: %s", domain.ErrUserAlreadyExists, pqErr.Constraint)
+	if constraint, ok := uniqueViolationConstraint(err); ok {
+		return domain.UserResult{}, fmt.Errorf("%w: %s", domain.ErrUserAlreadyExists, constraint)
 	}
 	if err != nil {
 		return domain.UserResult{}, fmt.Errorf("creating user: %w", err)
@@ -82,6 +81,10 @@ func (r *UserRepo) UpdateProfile(ctx context.Context, id int64, fullName *string
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.UserResult{}, fmt.Errorf("%w: id %d", domain.ErrUserNotFound, id)
+	}
+	// Renaming onto someone else's username/email hits the same UNIQUE constraints as Create.
+	if constraint, ok := uniqueViolationConstraint(err); ok {
+		return domain.UserResult{}, fmt.Errorf("%w: %s", domain.ErrUserAlreadyExists, constraint)
 	}
 	if err != nil {
 		return domain.UserResult{}, fmt.Errorf("updating profile for user %d: %w", id, err)
@@ -112,6 +115,16 @@ func (r *UserRepo) UpdateLastLogin(ctx context.Context, id int64) (domain.UserRe
 		return domain.UserResult{}, fmt.Errorf("updating last login for user %d: %w", id, err)
 	}
 	return rowToUser(row)
+}
+
+// uniqueViolationConstraint reports whether err is a Postgres UNIQUE
+// violation, and on which constraint.
+func uniqueViolationConstraint(err error) (string, bool) {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == uniqueViolation {
+		return pqErr.Constraint, true
+	}
+	return "", false
 }
 
 // toNullString converts an optional field (nil means "leave unchanged", per
