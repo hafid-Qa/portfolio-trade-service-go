@@ -9,6 +9,9 @@ type StockRepository interface {
 
 type PortfolioRepository interface {
 	Get(ctx context.Context, UserId int64) (Portfolio, error)
+	// Upsert creates the user's portfolio or replaces its target weights:
+	// each user has exactly one.
+	Upsert(ctx context.Context, p Portfolio) (Portfolio, error)
 }
 
 type TradeRepository interface {

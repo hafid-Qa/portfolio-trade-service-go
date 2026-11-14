@@ -50,6 +50,17 @@ func (f *fakePortfolioRepo) Get(ctx context.Context, userID int64) (Portfolio, e
 	return p, nil
 }
 
+func (f *fakePortfolioRepo) Upsert(ctx context.Context, p Portfolio) (Portfolio, error) {
+	if f.err != nil {
+		return Portfolio{}, f.err
+	}
+	if f.portfolios == nil {
+		f.portfolios = map[int64]Portfolio{}
+	}
+	f.portfolios[p.UserId()] = p
+	return p, nil
+}
+
 type fakeTradeProducer struct {
 	err error
 }

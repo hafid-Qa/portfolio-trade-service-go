@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -56,4 +57,23 @@ func (r *PortfolioRepo) All(ctx context.Context) (map[int64]domain.Portfolio, er
 		portfolios[p.UserId()] = p
 	}
 	return portfolios, nil
+}
+
+func (r *PortfolioRepo) Upsert(ctx context.Context, p domain.Portfolio) (domain.Portfolio, error) {
+	data, err := json.Marshal(p.TargetPortfolio())
+	if err != nil {
+		return domain.Portfolio{}, fmt.Errorf("encoding target_portfolio: %w", err)
+	}
+	row, err := r.store.UpsertPortfolio(ctx, sqlc.UpsertPortfolioParams{
+		UserID:          int32(p.UserId()),
+		TargetPortfolio: data,
+	})
+	if err != nil {
+		return domain.Portfolio{}, fmt.Errorf("saving portfolio for user %d: %w", p.UserId(), err)
+	}
+	targetPortfolio, err := rawToTargetPortfolio(row.TargetPortfolio)
+	if err != nil {
+		return domain.Portfolio{}, fmt.Errorf("portfolio %d: %w", row.ID, err)
+	}
+	return domain.NewPortfolio(int64(row.UserID), targetPortfolio)
 }

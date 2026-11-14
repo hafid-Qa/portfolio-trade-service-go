@@ -6,15 +6,20 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"sync"
 
 	"github.com/goccy/go-yaml"
 )
 
+// PortfolioRepo is guarded by mu: Upsert lets requests write concurrently.
 type PortfolioRepo struct {
+	mu         sync.RWMutex
 	portfolios map[int64]domain.Portfolio
 }
 
 func (r *PortfolioRepo) Get(ctx context.Context, userID int64) (domain.Portfolio, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	p, ok := r.portfolios[userID]
 	if !ok {
 		return domain.Portfolio{}, fmt.Errorf("%w: user %d", domain.ErrPortfolioNotFound, userID)
@@ -27,7 +32,16 @@ func (r *PortfolioRepo) Get(ctx context.Context, userID int64) (domain.Portfolio
 // check in api.NewServer, which needs to enumerate every portfolio before the app
 // starts serving requests.
 func (r *PortfolioRepo) All(ctx context.Context) (map[int64]domain.Portfolio, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return maps.Clone(r.portfolios), nil
+}
+
+func (r *PortfolioRepo) Upsert(ctx context.Context, p domain.Portfolio) (domain.Portfolio, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.portfolios[p.UserId()] = p
+	return p, nil
 }
 
 type portfolioDTO struct {
