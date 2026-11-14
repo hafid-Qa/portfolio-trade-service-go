@@ -26,14 +26,18 @@ type UserResponse struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 }
 
+// loginUserRequest binds from JSON or a form: Swagger's OAuth2 password flow
+// posts application/x-www-form-urlencoded (plus a grant_type field, ignored).
 type loginUserRequest struct {
-	Username string `json:"username" binding:"required,alphanum"`
-	Password string `json:"password" binding:"required,min=6"`
+	Username string `json:"username" form:"username" binding:"required,alphanum"`
+	Password string `json:"password" form:"password" binding:"required,min=6"`
 }
 
+// loginResponse uses the OAuth2 token response field names (RFC 6749 5.1),
+// which Swagger UI's password flow reads.
 type loginResponse struct {
 	AccessToken string `json:"access_token"`
-	Type        string `json:"type"`
+	TokenType   string `json:"token_type"`
 }
 
 // toUserResponse is the only way a user leaves the API: it copies the public

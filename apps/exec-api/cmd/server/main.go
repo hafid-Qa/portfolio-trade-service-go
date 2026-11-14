@@ -13,10 +13,10 @@ import (
 // @version 1.0
 // @description API for Trade Service
 // @BasePath /
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and the access token.
+// @securityDefinitions.oauth2.password OAuth2Password
+// @tokenUrl /api/users/login
+// @description Log in with username and password; the token is then sent as
+// @description "Authorization: Bearer <token>" on every request.
 func main() {
 	ctx := context.Background()
 

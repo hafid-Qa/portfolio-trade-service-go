@@ -54,7 +54,7 @@ func (server *Server) healthHandler(c *gin.Context) {
 // @Tags Trades
 // @Accept json
 // @Produce json
-// @Security BearerAuth
+// @Security OAuth2Password
 // @Param request body TradeRequest true "Trade amount"
 // @Success 200 {object} TradeResponse
 // @Failure 400 {object} map[string]string
@@ -87,7 +87,7 @@ func (server *Server) TradeHandler(c *gin.Context) {
 // @Tags Trades
 // @Accept json
 // @Produce json
-// @Security BearerAuth
+// @Security OAuth2Password
 // @Param id path int true "Trade ID"
 // @Success 200 {object} TradeResponse
 // @Failure 400 {object} map[string]string
@@ -118,7 +118,7 @@ func (server *Server) GetTradeHanlder(c *gin.Context) {
 // @Tags Trades
 // @Accept json
 // @Produce json
-// @Security BearerAuth
+// @Security OAuth2Password
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Page size" default(50)
 // @Success 200 {object} PaginatedResponse
@@ -189,7 +189,7 @@ func (server *Server) CreateUserHandler(c *gin.Context) {
 // @Description Returns the profile of the user the access token belongs to.
 // @Tags Users
 // @Produce json
-// @Security BearerAuth
+// @Security OAuth2Password
 // @Success 200 {object} UserResponse
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -223,7 +223,7 @@ var (
 // @Description Exchanges username and password for an access token. Every
 // @Description credential failure returns the same 401.
 // @Tags Users
-// @Accept json
+// @Accept json,x-www-form-urlencoded
 // @Produce json
 // @Param request body loginUserRequest true "Credentials"
 // @Success 200 {object} loginResponse
@@ -232,7 +232,8 @@ var (
 // @Router /api/users/login [post]
 func (server *Server) LoginHandler(c *gin.Context) {
 	var req loginUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// ShouldBind picks JSON or form binding from the Content-Type.
+	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse(errInvalidCredentials))
 		return
 	}
@@ -255,7 +256,7 @@ func (server *Server) LoginHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, loginResponse{
 		AccessToken: accessToken,
-		Type:        "Bearer",
+		TokenType:   "Bearer",
 	})
 }
 
@@ -263,7 +264,7 @@ func (server *Server) LoginHandler(c *gin.Context) {
 // @Description Revokes the access token used for this request; it is rejected
 // @Description from then on, even before it expires.
 // @Tags Users
-// @Security BearerAuth
+// @Security OAuth2Password
 // @Success 204
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
