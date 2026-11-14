@@ -52,11 +52,19 @@ type Config struct {
 	// Auth config
 	TokenSymmetricKey   string        `env:"TOKEN_SYMMETRIC_KEY,required"`
 	AccessTokenDuration time.Duration `env:"ACCESS_TOKEN_DURATION,default=15m"`
+
+	// Login rate limit: at most LoginMaxAttempts per LoginPeriod per username
+	// (a successful login resets the count).
+	LoginMaxAttempts int           `env:"LOGIN_MAX_ATTEMPTS,default=5"`
+	LoginPeriod      time.Duration `env:"LOGIN_PERIOD,default=15m"`
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
 	cfg := &Config{DataDir: "/data"}
 	if err := envconfig.Process(ctx, cfg); err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.validateAuth(); err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
@@ -83,6 +91,21 @@ func LoadConfig(ctx context.Context) (*Config, error) {
 		cfg.DBUserName, cfg.DBPassword, testDBHostName, cfg.DBPort, cfg.DBName, cfg.DBSslmode)
 	cfg.BrokerAddr = fmt.Sprintf("%s:%d", cfg.BrokerHost, cfg.BrokerPort)
 	return cfg, nil
+}
+
+// validateAuth rejects auth settings that would silently break login: a zero
+// limit or period would refuse every attempt (or never reset).
+func (c *Config) validateAuth() error {
+	if c.AccessTokenDuration <= 0 {
+		return fmt.Errorf("ACCESS_TOKEN_DURATION must be positive, got %s", c.AccessTokenDuration)
+	}
+	if c.LoginMaxAttempts <= 0 {
+		return fmt.Errorf("LOGIN_MAX_ATTEMPTS must be positive, got %d", c.LoginMaxAttempts)
+	}
+	if c.LoginPeriod <= 0 {
+		return fmt.Errorf("LOGIN_PERIOD must be positive, got %s", c.LoginPeriod)
+	}
+	return nil
 }
 
 func dataFilePath(dataDir, name string) (string, error) {
