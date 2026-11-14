@@ -25,6 +25,12 @@ func NewPortfolio(userId int64, targetPortfolio map[Symbol]int) (Portfolio, erro
 		return Portfolio{}, fmt.Errorf("%w: user id %d", ErrInvalidUserId, userId)
 	}
 
+	for sym, weight := range targetPortfolio {
+		if weight < 1 || weight > 100 {
+			return Portfolio{}, fmt.Errorf("%w: weight for %s must be between 1 and 100, got %d", ErrInvalidPortfolio, sym, weight)
+		}
+	}
+
 	ok, sum := sumTo100Percent(targetPortfolio)
 	if !ok {
 		return Portfolio{}, fmt.Errorf("%w: got %d%%", ErrInvalidPortfolioSum, sum)
