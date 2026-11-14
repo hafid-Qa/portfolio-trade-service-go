@@ -196,6 +196,32 @@ func TestUserRepo_UpdateProfile_PartialUpdate(t *testing.T) {
 	}
 }
 
+// Renaming onto another user's username or email must be ErrUserAlreadyExists,
+// not a raw DB error -- same UNIQUE constraints as Create.
+func TestUserRepo_UpdateProfile_Duplicate(t *testing.T) {
+	ctx := context.Background()
+	user := seedTestUser(t)
+	repo := NewUserRepo(testStore)
+	other, err := repo.Create(ctx, "Other User", "update_dup_other", "update_dup_other@example.com", "x")
+	if err != nil {
+		t.Fatalf("creating other user: %v", err)
+	}
+	t.Cleanup(func() { testStore.DeleteUser(ctx, int32(other.ID())) })
+
+	takenUsername, takenEmail := other.UserName(), other.Email()
+	for name, args := range map[string][2]*string{
+		"username": {&takenUsername, nil},
+		"email":    {nil, &takenEmail},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := repo.UpdateProfile(ctx, user.ID(), nil, args[0], args[1])
+			if !errors.Is(err, domain.ErrUserAlreadyExists) {
+				t.Errorf("UpdateProfile() error = %v, want ErrUserAlreadyExists", err)
+			}
+		})
+	}
+}
+
 func TestUserRepo_UpdateProfile_NotFound(t *testing.T) {
 	newName := "Doesn't Matter"
 	repo := NewUserRepo(testStore)
