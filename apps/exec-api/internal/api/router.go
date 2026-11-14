@@ -277,3 +277,92 @@ func (server *Server) LogoutHandler(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
+
+// @Summary Set my portfolio
+// @Description Creates or replaces the authenticated user's target portfolio.
+// @Description Weights are percentages: each between 1 and 100, summing to 100,
+// @Description and every ticker must exist in the stock catalogue.
+// @Tags Portfolio
+// @Accept json
+// @Produce json
+// @Security OAuth2Password
+// @Param request body PortfolioRequest true "Target portfolio"
+// @Success 200 {object} PortfolioResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/portfolio [put]
+func (server *Server) SetPortfolioHandler(c *gin.Context) {
+	var req PortfolioRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	weights := make(map[domain.Symbol]int, len(req.TargetPortfolio))
+	for ticker, w := range req.TargetPortfolio {
+		sym, err := domain.NewSymbol(ticker)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, errorResponse(err))
+			return
+		}
+		weights[sym] = w
+	}
+
+	p, err := server.portfolioService.SetPortfolio(c.Request.Context(), authPayload(c).UserID, weights)
+	if err != nil {
+		var unknown domain.UnknownStocksInPortfolio
+		if errors.Is(err, domain.ErrInvalidPortfolio) || errors.Is(err, domain.ErrInvalidPortfolioSum) || errors.As(err, &unknown) {
+			// Validation of the user's own input: safe and useful to explain.
+			c.JSON(http.StatusBadRequest, errorResponse(err))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+
+	c.JSON(http.StatusOK, toPortfolioResponse(p))
+}
+
+// @Summary Get my portfolio
+// @Description Returns the authenticated user's target portfolio.
+// @Tags Portfolio
+// @Produce json
+// @Security OAuth2Password
+// @Success 200 {object} PortfolioResponse
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/portfolio [get]
+func (server *Server) GetPortfolioHandler(c *gin.Context) {
+	p, err := server.portfolioService.GetPortfolio(c.Request.Context(), authPayload(c).UserID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPortfolioNotFound) {
+			c.JSON(http.StatusNotFound, errorResponse(domain.ErrPortfolioNotFound))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+
+	c.JSON(http.StatusOK, toPortfolioResponse(p))
+}
+
+// @Summary List stocks
+// @Description Returns the stock catalogue sorted by symbol: the tickers a
+// @Description portfolio can use. Halted stocks are listed with tradable=false.
+// @Tags Stocks
+// @Produce json
+// @Security OAuth2Password
+// @Success 200 {array} StockResponse
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/stocks [get]
+func (server *Server) ListStocksHandler(c *gin.Context) {
+	stocks, err := server.stockService.ListStocks(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse(errInternal))
+		return
+	}
+	c.JSON(http.StatusOK, toStockResponses(stocks))
+}

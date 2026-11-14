@@ -34,10 +34,12 @@ type Server struct {
 	config *config.Config
 	router *gin.Engine
 
-	tradeService *domain.TradeService
-	userService  *domain.UserService
-	tokenMaker   token.Maker
-	denylist     token.Denylist
+	tradeService     *domain.TradeService
+	userService      *domain.UserService
+	portfolioService *domain.PortfolioService
+	stockService     *domain.StockService
+	tokenMaker       token.Maker
+	denylist         token.Denylist
 }
 
 // portfolioCatalog is domain.PortfolioRepository plus All, which is deliberately
@@ -123,8 +125,10 @@ func newServer(config *config.Config, calc calcv1.CalcServiceClient) (*Server, e
 
 	tradeService := domain.NewTradeService(stockRepo, portfolioRepo, tradeRepo, calc, tradeProducer)
 	userService := domain.NewUserService(userRepo, password.Argon2Hasher{})
+	portfolioService := domain.NewPortfolioService(stockRepo, portfolioRepo)
+	stockService := domain.NewStockService(stockRepo)
 
-	server := &Server{config: config, tradeService: tradeService, userService: userService, tokenMaker: tokenMaker, denylist: denylist}
+	server := &Server{config: config, tradeService: tradeService, userService: userService, portfolioService: portfolioService, stockService: stockService, tokenMaker: tokenMaker, denylist: denylist}
 
 	server.SetUpRouter()
 	return server, nil
@@ -180,6 +184,9 @@ func (server *Server) SetUpRouter() {
 	authed := api.Group("", authMiddleware(server.tokenMaker, server.denylist))
 	authed.GET("/users/me", server.GetMeHandler)
 	authed.POST("/users/logout", server.LogoutHandler)
+	authed.GET("/stocks", server.ListStocksHandler)
+	authed.PUT("/portfolio", server.SetPortfolioHandler)
+	authed.GET("/portfolio", server.GetPortfolioHandler)
 	authed.POST("/trades", server.TradeHandler)
 	authed.GET("/trades/:id", server.GetTradeHanlder)
 	authed.GET("/trades", server.GetTradeByUserHanlder)
