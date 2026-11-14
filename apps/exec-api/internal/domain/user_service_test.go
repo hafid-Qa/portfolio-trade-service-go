@@ -16,6 +16,8 @@ type fakeUserRepo struct {
 	getErr       error // returned by GetByUsername instead of a lookup
 	createdHash  string
 	lastLoginFor int64
+
+	updatePasswordErr error
 }
 
 func newFakeUserRepo(users ...UserResult) *fakeUserRepo {
@@ -56,11 +58,21 @@ func (r *fakeUserRepo) Create(ctx context.Context, fullName, userName, email, pa
 }
 
 func (r *fakeUserRepo) UpdateProfile(ctx context.Context, id int64, fullName, userName, email *string) (UserResult, error) {
-	return UserResult{}, errors.New("not used")
+	return UserResult{}, errors.New("not used") // UserService.UpdateProfile is a pass-through; covered at the API/repo level
 }
 
 func (r *fakeUserRepo) UpdatePassword(ctx context.Context, id int64, passwordHash string) (UserResult, error) {
-	return UserResult{}, errors.New("not used")
+	if r.updatePasswordErr != nil {
+		return UserResult{}, r.updatePasswordErr
+	}
+	for name, u := range r.users {
+		if u.ID() == id {
+			updated := NewUserResult(u.ID(), u.FullName(), u.UserName(), u.Email(), passwordHash, u.LastLogin(), u.CreatedAt(), time.Now())
+			r.users[name] = updated
+			return updated, nil
+		}
+	}
+	return UserResult{}, fmt.Errorf("%w: id %d", ErrUserNotFound, id)
 }
 
 func (r *fakeUserRepo) UpdateLastLogin(ctx context.Context, id int64) (UserResult, error) {
@@ -220,4 +232,66 @@ func TestUserService_GetUser(t *testing.T) {
 	if _, err := svc.GetUser(context.Background(), 999); !errors.Is(err, ErrUserNotFound) {
 		t.Errorf("GetUser(999) error = %v, want ErrUserNotFound", err)
 	}
+}
+
+func TestUserService_ChangePassword(t *testing.T) {
+	repo := newFakeUserRepo(alice()) // password "s3cret!"
+	svc := NewUserService(repo, &fakeHasher{})
+
+	if err := svc.ChangePassword(context.Background(), 7, "s3cret!", "n3w-pass"); err != nil {
+		t.Fatalf("ChangePassword() error = %v", err)
+	}
+	if got := repo.users["alice"].PasswordHash(); got != "hashed:n3w-pass" {
+		t.Errorf("stored hash = %q, want the hash of the new password", got)
+	}
+
+	// The new password now logs in, the old one doesn't.
+	if _, err := svc.Login(context.Background(), "alice", "n3w-pass"); err != nil {
+		t.Errorf("Login(new password) error = %v", err)
+	}
+	if _, err := svc.Login(context.Background(), "alice", "s3cret!"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Errorf("Login(old password) error = %v, want ErrInvalidCredentials", err)
+	}
+}
+
+func TestUserService_ChangePassword_WrongCurrent(t *testing.T) {
+	repo := newFakeUserRepo(alice())
+	svc := NewUserService(repo, &fakeHasher{})
+
+	err := svc.ChangePassword(context.Background(), 7, "wrong", "n3w-pass")
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("ChangePassword() error = %v, want ErrInvalidCredentials", err)
+	}
+	if got := repo.users["alice"].PasswordHash(); got != "hashed:s3cret!" {
+		t.Errorf("password changed despite wrong current password: %q", got)
+	}
+}
+
+func TestUserService_ChangePassword_Errors(t *testing.T) {
+	t.Run("unknown user", func(t *testing.T) {
+		svc := NewUserService(newFakeUserRepo(), &fakeHasher{})
+		if err := svc.ChangePassword(context.Background(), 7, "s3cret!", "n3w-pass"); !errors.Is(err, ErrUserNotFound) {
+			t.Errorf("error = %v, want ErrUserNotFound", err)
+		}
+	})
+	t.Run("hash failure", func(t *testing.T) {
+		repo := newFakeUserRepo(alice())
+		svc := NewUserService(repo, &fakeHasher{hashErr: errors.New("rng failure")})
+		err := svc.ChangePassword(context.Background(), 7, "s3cret!", "n3w-pass")
+		if err == nil || errors.Is(err, ErrInvalidCredentials) {
+			t.Errorf("error = %v, want a non-credentials error", err)
+		}
+		if got := repo.users["alice"].PasswordHash(); got != "hashed:s3cret!" {
+			t.Errorf("password changed despite hash failure: %q", got)
+		}
+	})
+	t.Run("store failure", func(t *testing.T) {
+		repo := newFakeUserRepo(alice())
+		repo.updatePasswordErr = errors.New("db down")
+		svc := NewUserService(repo, &fakeHasher{})
+		err := svc.ChangePassword(context.Background(), 7, "s3cret!", "n3w-pass")
+		if err == nil || errors.Is(err, ErrInvalidCredentials) {
+			t.Errorf("error = %v, want the repo error", err)
+		}
+	})
 }
