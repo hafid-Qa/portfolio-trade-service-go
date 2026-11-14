@@ -86,7 +86,9 @@ Log out with `POST /api/users/logout` (same `Authorization` header): the token i
 rejected from then on, even before it expires.
 
 Interactive docs at `http://localhost:8000/swagger/index.html`, regenerated
-automatically on every `air` rebuild.
+automatically on every `air` rebuild. To call protected routes there, click **Authorize** and
+enter a username and password (the client ID/secret fields stay empty): Swagger
+logs in through `/api/users/login` and sends the token on every request.
 
 `docker compose up` also starts `broker` (Redis) and `consumer` (the worker,
 `go run ./cmd/worker`). Every created trade is enqueued onto `broker` right after
